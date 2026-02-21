@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# forge — CLI wrapper that runs Forge commands inside Docker.
+#
+# Usage:
+#   forge status        Show pipeline state and next step
+#   forge next          Show next step and run it interactively
+#   forge skip          Skip the current step
+#   forge reset         Discard all uncommitted changes
+#   forge shell         Open a bash shell in the container
+#   forge test          Run the full test suite with coverage
+#   forge build         Build / rebuild the Docker image
+#   forge logs          Tail the running Forge bot logs
+#   forge <cmd>         Run any other command inside the container
+#
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+usage() {
+  cat <<EOF
+Usage: forge <command> [args...]
+
+Commands:
+  status      Show pipeline state and next step
+  next        Show next step and run it interactively
+  skip        Skip the current step
+  reset       Discard all uncommitted changes
+  shell       Open a bash shell in the container
+  test        Run the full test suite with coverage
+  build       Build / rebuild the Docker image
+  logs        Tail the running Forge bot logs
+  up          Start the bot in the background
+  down        Stop the bot
+  <cmd>       Run any other command inside the container
+
+Examples:
+  forge status
+  forge next
+  forge test
+  forge shell
+  forge build
+EOF
+  exit 0
+}
+
+# ── Main ─────────────────────────────────────────────────────────────────────
+
+[[ $# -eq 0 ]] && usage
+
+case "$1" in
+  -h|--help|help)
+    usage
+    ;;
+  status|next|skip|reset)
+    docker compose run --rm forge python -m src "$@"
+    ;;
+  shell)
+    docker compose run --rm forge bash
+    ;;
+  test)
+    docker compose --profile test up --build forge-test
+    ;;
+  build)
+    docker compose build forge
+    ;;
+  logs)
+    docker compose logs -f forge
+    ;;
+  up)
+    docker compose up -d --build forge
+    ;;
+  down)
+    docker compose down
+    ;;
+  *)
+    # Pass anything else as a raw command inside the container
+    docker compose run --rm forge "$@"
+    ;;
+esac
