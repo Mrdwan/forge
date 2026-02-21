@@ -131,7 +131,7 @@ class ForgeBot:
     async def cmd_skip(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Skip the current step."""
         if self.state in (BotState.CONFIRMING, BotState.FAILED):
-            await abandon_step(self.cfg)
+            abandon_step(self.cfg)
             self._set_state(BotState.IDLE)
             await self._send(update, "⏭️ Step skipped. Changes reset. Reply /next for the next step.")
         else:
@@ -139,7 +139,7 @@ class ForgeBot:
 
     async def cmd_reset(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Reset all uncommitted changes and return to idle."""
-        await abandon_step(self.cfg)
+        abandon_step(self.cfg)
         self._set_state(BotState.IDLE)
         await self._send(update, "🔄 All uncommitted changes reset. Back to idle.")
 
@@ -167,7 +167,7 @@ class ForgeBot:
             if text == "retry":
                 await self._execute(update)
             elif text in ("skip", "next"):
-                await abandon_step(self.cfg)
+                abandon_step(self.cfg)
                 self._set_state(BotState.IDLE)
                 await self._send(update, "⏭️ Skipped. Reply /next for the next step.")
             elif text in ("stop", "reset"):
@@ -187,9 +187,7 @@ class ForgeBot:
         await self._send(update, "🚀 Starting... I'll notify you when done.")
 
         try:
-            result = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: asyncio.run(_execute_async(self.cfg))
-            )
+            result = await asyncio.to_thread(execute_step, self.cfg)
         except Exception as e:
             logger.exception("Pipeline execution failed")
             self._set_state(BotState.FAILED)
@@ -231,7 +229,7 @@ class ForgeBot:
         await self._send(update, "📦 Committing and updating memory bank...")
 
         try:
-            await finalize_step(self.cfg, self.current_result)
+            await asyncio.to_thread(finalize_step, self.cfg, self.current_result)
             step = self.current_result.step
             self._set_state(BotState.IDLE)
             self.current_result = None
@@ -243,11 +241,6 @@ class ForgeBot:
         except Exception as e:
             logger.exception("Finalization failed")
             await self._send(update, "💥 Commit failed. Check forge.log for details.\n\nReply 'retry' or 'stop'.")
-
-
-async def _execute_async(cfg: ForgeConfig) -> StepResult:
-    """Wrapper to run the pipeline step."""
-    return await execute_step(cfg)
 
 
 def _truncate(text: str, max_len: int) -> str:

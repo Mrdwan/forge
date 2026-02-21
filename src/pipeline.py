@@ -84,7 +84,7 @@ def run_pre_commit(project_path: Path, commands: list[str]) -> tuple[bool, str]:
     return True, ""
 
 
-async def execute_step(cfg: ForgeConfig) -> StepResult:
+def execute_step(cfg: ForgeConfig) -> StepResult:
     """Execute the next step in the roadmap. This is the main pipeline loop."""
 
     # 1. Find next step
@@ -364,7 +364,7 @@ This is the final review round. Fix these issues precisely."""
     )
 
 
-async def finalize_step(cfg: ForgeConfig, result: StepResult) -> None:
+def finalize_step(cfg: ForgeConfig, result: StepResult) -> None:
     """Commit changes, update memory bank, mark step complete.
 
     Called after user approves via Telegram.
@@ -382,7 +382,7 @@ async def finalize_step(cfg: ForgeConfig, result: StepResult) -> None:
 
     # Update memory bank
     diff_summary = get_diff(cfg.project_path)  # Will be empty after commit, use cached
-    await update_memory(
+    update_memory(
         memory_path=cfg.memory_path,
         step=step,
         diff_summary=result.details[:1500],  # Use senior review as summary
@@ -396,7 +396,7 @@ async def finalize_step(cfg: ForgeConfig, result: StepResult) -> None:
     logger.info(f"Step {step.step_id} finalized and committed")
 
 
-async def abandon_step(cfg: ForgeConfig) -> None:
+def abandon_step(cfg: ForgeConfig) -> None:
     """Reset all uncommitted changes when a step fails."""
     reset_changes(cfg.project_path)
     logger.info("Abandoned step — all changes reset")

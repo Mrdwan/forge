@@ -138,7 +138,7 @@ def get_memory_file_paths(memory_path: Path) -> list[str]:
     return [f"{memory_dir}/{f}" for f in files if (memory_path / f).exists()]
 
 
-async def update_memory(
+def update_memory(
     memory_path: Path,
     step: Step,
     diff_summary: str,
@@ -203,7 +203,7 @@ Format:
 [updated decisions content]"""
 
     try:
-        response = await litellm.acompletion(
+        response = litellm.completion(
             model=model,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=2000,
