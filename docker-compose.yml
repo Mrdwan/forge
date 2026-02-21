@@ -4,17 +4,46 @@ services:
     container_name: forge-bot
     restart: unless-stopped
     volumes:
-      # Mount your project repo — change this path
-      - /home/forge/wealth-ops:/project
+      # Mount your project repo. Set FORGE_PROJECT_PATH in .env to control the path inside the container.
+      - ${FORGE_PROJECT_PATH:-/home/forge/wealth-ops}:/project
       # Persist bot state across restarts
       - ./state:/app/state
     environment:
-      # API keys — set these in .env file
+      # ── Telegram ──────────────────────────────────────────────────────────
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+
+      # ── API Keys ──────────────────────────────────────────────────────────
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+
+      # ── Project path (inside container) ───────────────────────────────────
+      - FORGE_PROJECT_PATH=${FORGE_PROJECT_PATH:-/project}
+      - FORGE_MEMORY_DIR=${FORGE_MEMORY_DIR:-}
+
+      # ── Models ────────────────────────────────────────────────────────────
+      - FORGE_MODEL_CODER=${FORGE_MODEL_CODER:-}
+      - FORGE_MODEL_CODER_FALLBACK=${FORGE_MODEL_CODER_FALLBACK:-}
+      - FORGE_MODEL_JUNIOR_REVIEWER=${FORGE_MODEL_JUNIOR_REVIEWER:-}
+      - FORGE_MODEL_SENIOR_REVIEWER=${FORGE_MODEL_SENIOR_REVIEWER:-}
+      - FORGE_MODEL_CONTEXT_UPDATER=${FORGE_MODEL_CONTEXT_UPDATER:-}
+
+      # ── Pipeline limits ────────────────────────────────────────────────────
+      - FORGE_MAX_HOOK_RETRIES=${FORGE_MAX_HOOK_RETRIES:-}
+      - FORGE_MAX_JUNIOR_RETRIES=${FORGE_MAX_JUNIOR_RETRIES:-}
+      - FORGE_MAX_SENIOR_ROUNDS=${FORGE_MAX_SENIOR_ROUNDS:-}
+      - FORGE_AIDER_TIMEOUT=${FORGE_AIDER_TIMEOUT:-}
+
+      # ── Pre-commit commands ────────────────────────────────────────────────
+      - FORGE_PRECOMMIT_COMMANDS=${FORGE_PRECOMMIT_COMMANDS:-}
+
+      # ── Roadmap patterns ───────────────────────────────────────────────────
+      - FORGE_UNCHECKED_PATTERN=${FORGE_UNCHECKED_PATTERN:-}
+      - FORGE_CHECKED_PATTERN=${FORGE_CHECKED_PATTERN:-}
+
     working_dir: /project
 
   forge-test:
