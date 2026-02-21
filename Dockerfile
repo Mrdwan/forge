@@ -11,13 +11,16 @@ RUN git config --global user.name "Forge Bot" && \
 
 WORKDIR /app
 
-# Install Python deps
+# Install Python deps (includes pytest, pytest-cov, pytest-asyncio)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy Forge source
+# Copy Forge source + tests
 COPY src/ src/
+COPY forge_init.py .
 COPY config.yaml .
+COPY pyproject.toml .
+COPY tests/ tests/
 
 # Create log directory
 RUN mkdir -p /app/logs

@@ -209,11 +209,12 @@ def parse_verdict(review_output: str) -> bool:
     for line in output_upper.split("\n"):
         if "VERDICT:" in line:
             return "PASS" in line
-    # Fallback: look for PASS/FAIL anywhere
-    if "VERDICT: PASS" in output_upper:
-        return True
-    if "VERDICT: FAIL" in output_upper:
-        return False
+    # Fallback: look for PASS/FAIL anywhere (dead code in practice — the for loop
+    # always finds any line containing "VERDICT:", but kept as a safety net)
+    if "VERDICT: PASS" in output_upper:  # pragma: no cover
+        return True  # pragma: no cover
+    if "VERDICT: FAIL" in output_upper:  # pragma: no cover
+        return False  # pragma: no cover
     # If no clear verdict, assume fail (safer)
     logger.warning("Could not parse verdict from review, defaulting to FAIL")
     return False

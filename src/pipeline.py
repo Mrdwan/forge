@@ -134,6 +134,7 @@ def execute_step(cfg: ForgeConfig) -> StepResult:
 
     # 4. Pre-commit hooks
     hook_retries = 0
+    hooks_passed, hook_errors = True, ""  # default: pass (if max_hook_retries=0, skip loop)
     while hook_retries < cfg.pipeline.max_hook_retries:
         hooks_passed, hook_errors = run_pre_commit(
             cfg.project_path, cfg.pre_commit.commands
@@ -173,6 +174,8 @@ Do NOT rewrite files from scratch. Fix only the specific issues above."""
     # 5. Junior review loop
     junior_retries = 0
     junior_feedback = ""
+    # Default: treat as PASS so escalation is skipped when max_junior_retries=0
+    jr_result = type("_JrResult", (), {"output": "VERDICT: PASS"})()  # noqa: E501
 
     while junior_retries < cfg.pipeline.max_junior_retries:
         jr_result = run_junior_review(

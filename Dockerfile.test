@@ -1,0 +1,22 @@
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Only install test-time deps (no aider-chat — fully mocked in tests)
+COPY requirements-test.txt .
+RUN pip install --no-cache-dir -r requirements-test.txt
+
+# Copy source + tests
+COPY src/ src/
+COPY forge_init.py .
+COPY pyproject.toml .
+COPY tests/ tests/
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
+CMD ["pytest", "tests/", "-v", \
+    "--cov=src", "--cov=forge_init", \
+    "--cov-report=term-missing", \
+    "--cov-branch", \
+    "--cov-fail-under=100"]
