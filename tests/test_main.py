@@ -7,6 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from src.cli import COMMANDS
+
 
 class TestMain:
     """Tests for main() entry point.
@@ -89,3 +91,33 @@ class TestMain:
         assert "Forge" in captured.out
         assert "/my/project" in captured.out
         assert "gemini/test" in captured.out
+
+    def test_cli_dispatch_when_argv_is_next(self) -> None:
+        """argv ['forge', 'next'] → run_cli called, run_bot NOT called."""
+        mock_cfg = MagicMock()
+        with (
+            patch("logging.FileHandler", return_value=MagicMock()),
+            patch("src.__main__.load_config", return_value=mock_cfg),
+            patch("src.__main__.run_bot") as mock_run_bot,
+            patch("src.__main__.run_cli") as mock_run_cli,
+            patch.object(sys, "argv", ["forge", "next"]),
+        ):
+            from src.__main__ import main
+            main()
+        mock_run_cli.assert_called_once_with(mock_cfg, ["next"])
+        mock_run_bot.assert_not_called()
+
+    def test_bot_dispatch_when_no_subcommand(self) -> None:
+        """argv ['forge'] → run_bot called, run_cli NOT called."""
+        mock_cfg = MagicMock()
+        with (
+            patch("logging.FileHandler", return_value=MagicMock()),
+            patch("src.__main__.load_config", return_value=mock_cfg),
+            patch("src.__main__.run_bot") as mock_run_bot,
+            patch("src.__main__.run_cli") as mock_run_cli,
+            patch.object(sys, "argv", ["forge"]),
+        ):
+            from src.__main__ import main
+            main()
+        mock_run_bot.assert_called_once_with(mock_cfg)
+        mock_run_cli.assert_not_called()

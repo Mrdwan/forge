@@ -133,6 +133,38 @@ docker compose up -d
 | `skip` | After step fails | Discard changes, move on |
 | `stop` | Anytime | Discard all changes, go idle |
 
+## CLI Usage
+
+You can control Forge from your terminal with the same commands as Telegram:
+
+```bash
+python -m src status   # Show current state and next step
+python -m src next     # Show next step, then run it interactively
+python -m src skip     # Skip the current queued step
+python -m src reset    # Discard all uncommitted changes
+```
+
+When `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are set, the CLI will also
+send status updates to your Telegram chat so you know what's happening even
+when you triggered the run from the terminal.
+
+**Interactive flow** for `python -m src next`:
+1. The next roadmap step is displayed
+2. Type `go` to start the pipeline, or `skip` to skip
+3. On success, type `commit` to save or `stop` to discard
+4. On failure, type `retry`, `skip`, or `stop`
+
+## Running Tests
+
+Tests must be run inside Docker to match the production environment exactly:
+
+```bash
+docker compose --profile test run --rm forge-test
+```
+
+> **Do not** run `pytest` directly on the host — the Docker test image ensures
+> the correct Python version, dependencies, and isolation.
+
 ## Cost Estimates
 
 Per step (assuming Sonnet coder, DeepSeek junior, Sonnet senior):

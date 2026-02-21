@@ -5,6 +5,7 @@ import sys
 
 from src.config import load_config
 from src.bot import run_bot
+from src.cli import COMMANDS, run_cli
 
 logging.basicConfig(
     level=logging.INFO,
@@ -19,7 +20,16 @@ logging.getLogger().handlers[1].setLevel(logging.WARNING)
 
 
 def main() -> None:
-    config_path = sys.argv[1] if len(sys.argv) > 1 else "config.yaml"
+    # If the first argument is a CLI sub-command, dispatch to the CLI instead
+    # of starting the Telegram polling bot.
+    args = sys.argv[1:]
+    if args and args[0] in COMMANDS:
+        config_path = "config.yaml"
+        cfg = load_config(config_path)
+        run_cli(cfg, args)
+        return
+
+    config_path = args[0] if args else "config.yaml"
     cfg = load_config(config_path)
 
     print(f"Forge starting")
