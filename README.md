@@ -154,16 +154,45 @@ when you triggered the run from the terminal.
 3. On success, type `commit` to save or `stop` to discard
 4. On failure, type `retry`, `skip`, or `stop`
 
-## Running Tests
+## Docker Usage
 
-Tests must be run inside Docker to match the production environment exactly:
+The easiest way to interact with Forge locally is to use Docker.
+
+**1. Running an interactive shell**
+Open a shell inside the Docker container to manually run `python` commands, scripts, or use `pip`:
 
 ```bash
-docker compose --profile test run --rm forge-test
+# Build the image first (only needed when you change requirements or Dockerfile)
+docker compose build forge
+
+# Open an interactive bash shell inside the container
+docker compose run --rm forge bash
 ```
 
-> **Do not** run `pytest` directly on the host — the Docker test image ensures
-> the correct Python version, dependencies, and isolation.
+**2. Running your test suite**
+Run all `pytest` unit tests with coverage using the dedicated profile:
+
+```bash
+docker compose --profile test up --build forge-test
+```
+
+> **Do not** run `pytest` directly on your host machine — the Docker test image ensures
+> the correct Python version, dependencies, and complete environment isolation.
+
+**3. Running a single one-off command**
+Execute a single python command or script and have the container exit immediately afterwards:
+
+```bash
+docker compose run --rm forge python <your_script.py>
+```
+
+**4. Running the main application**
+Start the main application as defined in the Dockerfile (`python -m src`):
+
+```bash
+docker compose up --build forge
+```
+*(Add `-d` to the end if you want it to run quietly in the background!)*
 
 ## Cost Estimates
 
