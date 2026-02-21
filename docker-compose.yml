@@ -1,0 +1,18 @@
+services:
+  forge:
+    build: .
+    container_name: forge-bot
+    restart: unless-stopped
+    volumes:
+      # Mount your project repo — change this path
+      - /home/forge/wealth-ops:/project
+      # Persist bot state across restarts
+      - ./state:/app/state
+    environment:
+      # API keys — set these in .env file
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+    working_dir: /project

@@ -1,0 +1,51 @@
+# Forge Configuration
+# Copy this to config.yaml and fill in your values
+
+project:
+  # Absolute path to your project repo on the server
+  path: /home/forge/wealth-ops
+  # Memory bank directory (relative to project path)
+  memory_dir: memory
+
+models:
+  # Primary coder model - needs to be strong enough to figure out implementation
+  coder: gemini/gemini-2.5-pro
+  # Fallback coder if primary fails or is unavailable
+  coder_fallback: anthropic/claude-sonnet-4-5-20250929
+  # Junior reviewer - cheap, runs in the tight loop
+  junior_reviewer: deepseek/deepseek-chat
+  # Senior reviewer - thorough, runs once or twice per step
+  senior_reviewer: anthropic/claude-sonnet-4-5-20250929
+  # Context updater - updates memory bank files after each step
+  context_updater: deepseek/deepseek-chat
+
+telegram:
+  bot_token: ${TELEGRAM_BOT_TOKEN}
+  # Your personal chat ID (message @userinfobot on Telegram to get this)
+  chat_id: ${TELEGRAM_CHAT_ID}
+
+pipeline:
+  # Max retries for coder when pre-commit hooks fail
+  max_hook_retries: 3
+  # Max retries in the junior review loop
+  max_junior_retries: 3
+  # Max senior escalation rounds (junior loop + senior check = 1 round)
+  max_senior_rounds: 2
+  # Timeout for a single Aider invocation in seconds (15 min)
+  aider_timeout: 900
+
+pre_commit:
+  # Commands run after coder finishes, before review
+  # All must pass (exit code 0) for the step to proceed
+  commands:
+    - "ruff check src/"
+    - "mypy src/ --config-file mypy.ini"
+    - "pytest tests/ -x -q --tb=short"
+
+# Roadmap parsing config
+roadmap:
+  # Regex pattern for unchecked step lines in ROADMAP.md
+  # Expects: - [ ] Step X.Y: Description
+  unchecked_pattern: '^\s*-\s*\[ \]\s*\*{0,2}Step\s+(\d+\.\d+):?\*{0,2}\s*(.*)'
+  # Pattern for checked steps
+  checked_pattern: '^\s*-\s*\[x\]\s*\*{0,2}Step\s+(\d+\.\d+):?\*{0,2}\s*(.*)'

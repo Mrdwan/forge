@@ -1,0 +1,4 @@
+python-telegram-bot==21.7
+aider-chat==0.82.3
+litellm==1.55.3
+pyyaml==6.0.2
