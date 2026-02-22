@@ -17,6 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy Forge source + tests
 COPY src/ src/
+COPY prompts/ prompts/
 COPY forge_init.py .
 COPY config.yaml .
 COPY pyproject.toml .

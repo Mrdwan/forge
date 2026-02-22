@@ -13,6 +13,8 @@ from pathlib import Path
 
 import litellm
 
+from src.prompts import load_prompt
+
 logger = logging.getLogger(__name__)
 
 
@@ -93,22 +95,8 @@ def get_coder_context(memory_path: Path, step: Step) -> str:
     context = "\n\n---\n\n".join(parts)
 
     # The actual task prompt
-    task = f"""## Your Task
-
-Implement Step {step.step_id}: {step.description}
-
-Read the architecture and progress above to understand the current state of the project.
-Figure out what files need to be created or modified. Write clean, well-tested code.
-
-Requirements:
-- Write pytest tests for your implementation (in tests/ directory)
-- Use type hints on all function signatures
-- Use Google-style docstrings on public methods
-- Catch specific exceptions, never bare except
-- If this step involves rolling calculations, guard every .where() and division against NaN
-- Run your new tests to verify they pass before finishing
-
-After implementing, briefly summarize what you built and which files you created/modified."""
+    task_template = load_prompt("coder")
+    task = task_template.format(step_id=step.step_id, description=step.description)
 
     return f"{context}\n\n{task}"
 
@@ -141,47 +129,16 @@ def update_memory(
     current_arch = arch.read_text() if arch.exists() else ""
     current_decisions = decisions.read_text() if decisions.exists() else ""
 
-    prompt = f"""You are updating a project's memory bank after completing a development step.
-
-## Completed Step
-Step {step.step_id}: {step.description}
-
-## Changes Made
-{diff_summary}
-
-## Senior Review Summary
-{senior_review}
-
-## Current Memory Files
-
-### ROADMAP.md (current)
-{current_roadmap}
-
-### ARCHITECTURE.md (current)
-{current_arch}
-
-### DECISIONS.md (current)
-{current_decisions}
-
-## Instructions
-
-Output exactly three sections, separated by "===SECTION===" markers:
-
-1. ROADMAP.md — Check off the completed step (change `- [ ]` to `- [x]`). Immediately below the checked step, add a new line starting with `> ` containing a very brief summary of what changed (e.g., `> Moved to src/ layout, added hooks`). Keep all other steps unchanged.
-
-2. ARCHITECTURE.md — Update ONLY if the system structure changed (new components, new data flows, schema changes). If no structural changes, output the existing content unchanged. Do NOT add information about implementation details that don't affect architecture.
-
-3. DECISIONS.md — Add an entry ONLY if a significant design decision was made during this step (e.g., chose a specific pattern, rejected an approach). If no new decisions, output existing content unchanged.
-
-Keep all files concise. Under 50 lines each. Remove outdated information.
-
-Format:
-===ROADMAP===
-[updated roadmap content]
-===ARCHITECTURE===
-[updated architecture content]
-===DECISIONS===
-[updated decisions content]"""
+    prompt_template = load_prompt("memory_updater")
+    prompt = prompt_template.format(
+        step_id=step.step_id,
+        description=step.description,
+        diff_summary=diff_summary,
+        senior_review=senior_review,
+        current_roadmap=current_roadmap,
+        current_arch=current_arch,
+        current_decisions=current_decisions,
+    )
 
     try:
         response = litellm.completion(

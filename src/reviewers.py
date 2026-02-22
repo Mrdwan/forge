@@ -14,103 +14,9 @@ import logging
 from pathlib import Path
 
 from src.aider_client import AiderResult, get_changed_files, get_diff, run_reviewer
+from src.prompts import load_prompt
 
 logger = logging.getLogger(__name__)
-
-
-JUNIOR_REVIEW_PROMPT = """You are a code reviewer doing a quick quality check on recent changes.
-
-## Step Being Implemented
-Step {step_id}: {description}
-
-## Changed Files
-{changed_files}
-
-## Diff Summary
-{diff}
-
-## Your Job
-
-Check these things and be specific:
-
-1. **Tests exist?** Are there actual pytest tests for the new code? Not just the code itself.
-2. **Obvious bugs?** Off-by-one errors, unhandled None/empty cases, wrong variable names.
-3. **Error handling?** Are exceptions caught specifically (not bare except)? Are API/IO failures handled?
-4. **NaN safety?** If there are rolling calculations, is every .where() and division guarded against NaN?
-5. **Does it match the step description?** Did the coder actually build what was asked for?
-
-You have access to read project files. If you need to check how something integrates with existing code, use /read to examine relevant files.
-
-Respond in this exact format:
-
-VERDICT: PASS or FAIL
-
-ISSUES (if FAIL):
-- [specific issue 1]
-- [specific issue 2]
-
-SUMMARY: [2-3 sentences max]"""
-
-
-SENIOR_REVIEW_PROMPT = """You are a senior engineer doing a thorough review of a completed development step.
-
-## Step Being Implemented
-Step {step_id}: {description}
-
-## Changed Files
-{changed_files}
-
-## Diff Summary
-{diff}
-
-## Your Job
-
-This is the deep review. You have access to read any file in the project. Use it.
-
-Check each of the following. Be specific and cite file names and line numbers:
-
-1. **Acceptance criteria:** Does the implementation actually satisfy what Step {step_id} asked for? Not "mostly" — fully.
-2. **Security concerns:** SQL injection, path traversal, hardcoded secrets, unsafe deserialization, missing input validation.
-3. **Technical debt:** Copy-pasted code, magic numbers, missing abstractions, things that will hurt in 3 months.
-4. **Code design:** Single responsibility? Dependency inversion for external IO? Clean interfaces?
-5. **Integration:** Does the new code fit with the existing architecture? Check imports, check how it connects to existing modules.
-6. **Test quality:** Are the tests testing behavior or just testing that code runs? Are edge cases covered?
-
-Respond in this exact format:
-
-VERDICT: PASS or FAIL
-
-ISSUES (if FAIL):
-- [SEVERITY: HIGH/MEDIUM/LOW] [specific issue with file reference]
-
-SUGGESTIONS (optional, for PASS with notes):
-- [suggestion]
-
-SUMMARY: [3-5 sentences covering what was built, quality assessment, and any concerns]"""
-
-
-SENIOR_GUIDANCE_PROMPT = """You are a senior engineer. The coding agent has been stuck on this step and needs your guidance.
-
-## Step Being Implemented
-Step {step_id}: {description}
-
-## What the Coder Tried
-{coder_output}
-
-## Error / Failure
-{error}
-
-## Junior Reviewer Feedback
-{junior_feedback}
-
-You have access to read any file in the project. Investigate the root cause.
-
-Provide specific, actionable guidance for the coder:
-1. What is the actual root cause of the failure?
-2. What specific changes need to be made (file names, function names, what to change)?
-3. Is the coder's approach fundamentally wrong, or is it a small fix?
-
-Be concrete. "Fix the error handling" is useless. "In src/modules/ingest.py, the fetch_data() function catches Exception but should catch requests.HTTPError and handle 429 rate limits with exponential backoff" is useful."""
 
 
 def run_junior_review(
@@ -124,7 +30,8 @@ def run_junior_review(
     changed = get_changed_files(project_path)
     diff = get_diff(project_path)
 
-    prompt = JUNIOR_REVIEW_PROMPT.format(
+    prompt_template = load_prompt("junior_reviewer")
+    prompt = prompt_template.format(
         step_id=step_id,
         description=description,
         changed_files="\n".join(f"- {f}" for f in changed)
@@ -156,7 +63,8 @@ def run_senior_review(
     changed = get_changed_files(project_path)
     diff = get_diff(project_path)
 
-    prompt = SENIOR_REVIEW_PROMPT.format(
+    prompt_template = load_prompt("senior_reviewer")
+    prompt = prompt_template.format(
         step_id=step_id,
         description=description,
         changed_files="\n".join(f"- {f}" for f in changed)
@@ -187,7 +95,8 @@ def get_senior_guidance(
     timeout: int = 600,
 ) -> AiderResult:
     """Ask senior reviewer for guidance when the coder is stuck."""
-    prompt = SENIOR_GUIDANCE_PROMPT.format(
+    prompt_template = load_prompt("senior_guidance")
+    prompt = prompt_template.format(
         step_id=step_id,
         description=description,
         coder_output=coder_output[:1500],  # Truncate to manage tokens

@@ -16,5 +16,7 @@ ENV PRE_COMMIT_HOME=/tmp/pre-commit-cache
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
+COPY prompts/ prompts/
+
 # Default: run pre-commit on all files, then full test suite with coverage
 CMD ["sh", "-c", "pre-commit run --all-files && pytest tests/ -v --cov=src --cov=forge_init --cov-report=term-missing --cov-branch --cov-fail-under=100"]
