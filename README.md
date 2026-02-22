@@ -7,7 +7,7 @@ Autonomous coding pipeline controlled via Telegram. You describe what to build i
 1. You write a `ROADMAP.md` with steps like `- [ ] Step 2.3: Build momentum composite scoring module`
 2. You message `/next` on Telegram
 3. Forge shows you the step and waits for "go"
-4. A coding model (Sonnet / Gemini) reads your memory bank, figures out the implementation, writes code + tests
+4. A coding model (via LiteLLM, supporting any Anthropic, OpenAI, Google, or DeepSeek model) reads your memory bank, figures out the implementation, writes code + tests
 5. Pre-commit hooks run (ruff, mypy, pytest)
 6. Junior reviewer (DeepSeek, with full codebase read access) checks for bugs and correctness
 7. Senior reviewer (Sonnet, with full codebase read access) does deep review: security, design, integration
@@ -73,6 +73,8 @@ Create a `.env` file:
 ```bash
 TELEGRAM_BOT_TOKEN=your_bot_token
 TELEGRAM_CHAT_ID=your_chat_id
+FORGE_PROJECT_PATH=/absolute/path/to/your/project/on/host
+
 ANTHROPIC_API_KEY=sk-ant-...
 DEEPSEEK_API_KEY=sk-...
 # GOOGLE_API_KEY=...  # if using Gemini
@@ -178,7 +180,10 @@ If using Gemini 3.1 Pro as coder (cheaper), costs drop significantly on the code
 
 ## Configuration Reference
 
-See `config.yaml` for all options. Key settings:
+See `config.yaml` for all options. You can override any setting using `FORGE_*` environment variables in your `.env` file (e.g., `FORGE_MODEL_CODER=anthropic/claude-3-7-sonnet-20250219`).
+
+**Models (LiteLLM Format)**
+Because Forge uses **LiteLLM**, you are never locked into old models. When a new model is released, you don't need to wait for a code update—just change the `<provider>/<model-name>` string in your `.env` file to use it immediately.
 
 - `models.coder`: Primary coding model. Needs to be strong enough to figure out implementation from a one-line description.
 - `models.coder_fallback`: Used if primary fails completely.
