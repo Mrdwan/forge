@@ -21,7 +21,7 @@ services:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
 
       # ── Project path (inside container) ───────────────────────────────────
-      - FORGE_PROJECT_PATH=${FORGE_PROJECT_PATH:-/project}
+      - FORGE_PROJECT_PATH=/project
       - FORGE_MEMORY_DIR=${FORGE_MEMORY_DIR:-}
 
       # ── Models ────────────────────────────────────────────────────────────

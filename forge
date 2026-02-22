@@ -55,10 +55,10 @@ case "$1" in
     usage
     ;;
   status|next|skip|reset)
-    docker compose run --rm forge python -m src "$@"
+    docker compose run --rm --workdir /app forge python -m src "$@"
     ;;
   shell)
-    docker compose run --rm forge bash
+    docker compose run --rm --workdir /app forge bash
     ;;
   test)
     docker compose --profile test up --build forge-test
