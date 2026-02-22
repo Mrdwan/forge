@@ -17,17 +17,22 @@ If anything fails, the pipeline loops: coder fixes → reviewer re-checks. If th
 
 ## Project Structure
 
-```
-src/
 ├── src/
 │   ├── __init__.py
 │   ├── __main__.py      # Entry point
 │   ├── config.py        # Config loader
+│   ├── prompts.py       # Prompt loading utility
 │   ├── bot.py           # Telegram bot interface
 │   ├── pipeline.py      # Main orchestrator
 │   ├── aider_client.py  # Aider subprocess wrapper
 │   ├── memory.py        # Memory bank manager
 │   └── reviewers.py     # Two-tier review system
+├── prompts/             # Agent Markdown Prompts
+│   ├── coder.md
+│   ├── junior_reviewer.md
+│   ├── senior_guidance.md
+│   ├── senior_reviewer.md
+│   └── memory_updater.md
 ├── config.yaml          # Pipeline configuration
 ├── requirements.txt
 ├── Dockerfile
@@ -46,6 +51,13 @@ Forge maintains five files in your project's `memory/` directory:
 | `DECISIONS.md` | Why things are the way they are | Coder |
 
 After each successful step, a cheap model (DeepSeek) updates the relevant memory files based on what changed.
+
+## Prompt Customization
+
+All the raw prompts given to the internal AI agents (such as the coder, junior reviewer, and senior reviewer) live in the `prompts/` directory as pure Markdown files.
+
+You are encouraged to tweak these templates!
+If you want the reviewer to look for specific patterns or the coder to adopt a specific communication style, simply edit the corresponding `.md` file in `prompts/`. No Python code changes are required.
 
 ## Setup
 
