@@ -15,6 +15,12 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+class AiderFatalError(Exception):
+    """Raised when Aider encounters a fatal error (e.g., missing API key)."""
+
+    pass
+
+
 @dataclass
 class AiderResult:
     success: bool
@@ -223,6 +229,32 @@ def _run_aider(cmd: list[str], cwd: Path, timeout: int) -> AiderResult:
         error = result.stderr.strip()
         changed = get_changed_files(cwd)
 
+        error_text = error or output
+
+        # Detect fatal API / Auth errors regardless of returncode,
+        # because Aider sometimes returns 0 even on fatal API failures
+        fatal_keywords = ["api key", "authentication", "rate limit", "401", "403"]
+        is_fatal = any(kw in error_text.lower() for kw in fatal_keywords)
+
+        # If Aider cleanly crashes right at start with code > 0
+        if result.returncode != 0:
+            if is_fatal:
+                pass
+            elif len(output) < 500 and "Traceback" in error_text:
+                is_fatal = True
+            elif "usage: aider" in error_text.lower():
+                is_fatal = True
+            elif "no module named" in error_text.lower():
+                is_fatal = True
+            elif not output.strip() and error:
+                is_fatal = True
+
+        if is_fatal:
+            final_error = error or f"Aider failed (code {result.returncode})"
+            raise AiderFatalError(
+                f"Fatal Aider Error: {final_error}\nOutput: {output[:500]}"
+            )
+
         if result.returncode != 0:
             logger.warning(f"Aider exited with code {result.returncode}")
             return AiderResult(
@@ -248,9 +280,4 @@ def _run_aider(cmd: list[str], cwd: Path, timeout: int) -> AiderResult:
             changed_files=[],
         )
     except FileNotFoundError:
-        return AiderResult(
-            success=False,
-            output="",
-            error="Aider not found. Install with: pip install aider-chat",
-            changed_files=[],
-        )
+        raise AiderFatalError("Aider not found. Install with: pip install aider-chat")

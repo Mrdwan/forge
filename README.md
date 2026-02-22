@@ -154,7 +154,8 @@ The `forge` script wraps Docker so you never need to think about containers. All
 1. The next roadmap step is displayed
 2. Type `go` to start the pipeline, or `skip` to skip
 3. On success, type `commit` to save or `stop` to discard
-4. On failure, type `retry`, `skip`, or `stop`
+4. On code validation failure (e.g., hooks, tests), type `retry`, `skip`, or `stop`
+5. On a fatal pipeline error (e.g., missing API key, aider crash), the pipeline immediately aborts and resets changes without asking.
 
 When `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are set, the CLI will also
 send status updates to your Telegram chat.
@@ -174,9 +175,11 @@ send status updates to your Telegram chat.
 |-------|------|-------------|
 | `go` | After `/next` shows a step | Start execution |
 | `commit` | After step succeeds | Commit + update memory bank |
-| `retry` | After step fails | Re-run the same step |
-| `skip` | After step fails | Discard changes, move on |
+| `retry` | After code validation fails | Re-run the same step |
+| `skip` | After code validation fails | Discard code changes, move on |
 | `stop` | Anytime | Discard all changes, go idle |
+
+*(Note: If a fatal pipeline error occurs, such as a missing API key, the pipeline automatically aborts without prompting.)*
 
 ## Cost Estimates
 

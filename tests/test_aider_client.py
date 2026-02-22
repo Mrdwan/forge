@@ -4,8 +4,10 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 
 from src.aider_client import (
+    AiderFatalError,
     commit_changes,
     get_changed_files,
     get_diff,
@@ -77,17 +79,17 @@ class TestRunCoder:
         cmd = mock_run.call_args_list[0][0][0]
         assert "--read" not in cmd
 
-    def test_non_zero_exit_returns_failure(self, tmp_path: Path) -> None:
+    def test_non_zero_exit_raises_fatal_error(self, tmp_path: Path) -> None:
         with patch("src.aider_client.subprocess.run") as mock_run:
             mock_run.side_effect = [
                 _make_proc(1, "", "some error"),
                 _make_proc(0, ""),
                 _make_proc(0, ""),
             ]
-            result = run_coder("test/model", "do stuff", tmp_path)
+            with pytest.raises(AiderFatalError) as exc_info:
+                run_coder("test/model", "do stuff", tmp_path)
 
-        assert result.success is False
-        assert "some error" in result.error or "exited with code 1" in result.error
+        assert "some error" in str(exc_info.value)
 
     def test_non_zero_exit_no_stderr_formats_message(self, tmp_path: Path) -> None:
         with patch("src.aider_client.subprocess.run") as mock_run:
@@ -113,10 +115,12 @@ class TestRunCoder:
 
     def test_aider_not_found_returns_failure(self, tmp_path: Path) -> None:
         with patch("src.aider_client.subprocess.run", side_effect=FileNotFoundError):
-            result = run_coder("test/model", "do stuff", tmp_path)
+            with pytest.raises(AiderFatalError) as exc_info:
+                run_coder("test/model", "do stuff", tmp_path)
 
-        assert result.success is False
-        assert "not found" in result.error.lower() or "Aider not found" in result.error
+        assert "not found" in str(exc_info.value).lower() or "Aider not found" in str(
+            exc_info.value
+        )
 
 
 # ---------------------------------------------------------------------------

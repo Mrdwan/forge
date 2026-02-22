@@ -74,7 +74,7 @@ pre_commit:
   # All must exit 0 for the pipeline to proceed.
   # Override with comma-separated list: FORGE_PRECOMMIT_COMMANDS="ruff check src/,pytest tests/ -x -q"
   commands:
-    - "ruff check src/"
+    - "ruff check --fix src/"
     - "mypy src/ --config-file mypy.ini"
     - "pytest tests/ -x -q --tb=short"
 

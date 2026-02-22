@@ -231,6 +231,24 @@ def _handle_result(cfg: ForgeConfig, result: StepResult, *, notify: bool) -> Non
             notify_telegram(cfg, tg_msg)
         _prompt_commit(cfg, result=result, notify=notify)
 
+    elif result.status == StepStatus.ERROR:
+        abandon_step(cfg)
+        _save_state(BotState.IDLE)
+        print(f"\n❌ {result.summary}\n")
+        print("Details:")
+        print(_truncate(result.details, 1500))
+        if notify:
+            tg_msg = (
+                f"💥 {result.summary}\n\n"
+                f"Details:\n{_truncate(result.details, 800)}\n\n"
+                f"Pipeline aborted. Changes reset."
+            )
+            notify_telegram(cfg, tg_msg)
+        print(
+            "\nPipeline aborted due to a fatal error. Uncommitted changes have been reset."
+        )
+        return
+
     else:
         _save_state(BotState.FAILED)
         print(f"\n❌ {result.summary}\n")

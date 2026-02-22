@@ -18,6 +18,7 @@ from enum import Enum
 from pathlib import Path
 
 from src.aider_client import (
+    AiderFatalError,
     commit_changes,
     reset_changes,
     run_coder,
@@ -101,19 +102,8 @@ def execute_step(cfg: ForgeConfig) -> StepResult:
     memory_files = get_memory_file_paths(cfg.memory_path)
     current_model = cfg.models.coder
 
-    # 3. Run coder
-    coder_result = run_coder(
-        model=current_model,
-        message=context,
-        project_path=cfg.project_path,
-        read_only_files=memory_files,
-        timeout=cfg.pipeline.aider_timeout,
-    )
-
-    if not coder_result.success and not coder_result.changed_files:
-        # Coder completely failed to produce anything, try fallback model
-        logger.warning(f"Primary coder ({current_model}) failed, trying fallback")
-        current_model = cfg.models.coder_fallback
+    try:
+        # 3. Run coder
         coder_result = run_coder(
             model=current_model,
             message=context,
@@ -123,12 +113,31 @@ def execute_step(cfg: ForgeConfig) -> StepResult:
         )
 
         if not coder_result.success and not coder_result.changed_files:
-            return StepResult(
-                status=StepStatus.FAILED,
-                step=step,
-                summary=f"Step {step.step_id} failed: Coder produced no output",
-                details=coder_result.error,
+            # Coder completely failed to produce anything, try fallback model
+            logger.warning(f"Primary coder ({current_model}) failed, trying fallback")
+            current_model = cfg.models.coder_fallback
+            coder_result = run_coder(
+                model=current_model,
+                message=context,
+                project_path=cfg.project_path,
+                read_only_files=memory_files,
+                timeout=cfg.pipeline.aider_timeout,
             )
+
+            if not coder_result.success and not coder_result.changed_files:
+                return StepResult(
+                    status=StepStatus.FAILED,
+                    step=step,
+                    summary=f"Step {step.step_id} failed: Coder produced no output",
+                    details=coder_result.error,
+                )
+    except AiderFatalError as e:
+        return StepResult(
+            status=StepStatus.ERROR,
+            step=step,
+            summary=f"Step {step.step_id} failed: Coder encountered a fatal error (e.g. missing API key)",
+            details=str(e),
+        )
 
     # 4. Pre-commit hooks
     hook_retries = 0
@@ -158,13 +167,21 @@ def execute_step(cfg: ForgeConfig) -> StepResult:
 
 Do NOT rewrite files from scratch. Fix only the specific issues above."""
 
-        coder_result = run_coder(
-            model=current_model,
-            message=retry_msg,
-            project_path=cfg.project_path,
-            read_only_files=memory_files,
-            timeout=cfg.pipeline.aider_timeout,
-        )
+        try:
+            coder_result = run_coder(
+                model=current_model,
+                message=retry_msg,
+                project_path=cfg.project_path,
+                read_only_files=memory_files,
+                timeout=cfg.pipeline.aider_timeout,
+            )
+        except AiderFatalError as e:
+            return StepResult(
+                status=StepStatus.ERROR,
+                step=step,
+                summary=f"Step {step.step_id} failed: Coder encountered a fatal error during pre-commit retry",
+                details=str(e),
+            )
 
     if not hooks_passed:
         return StepResult(
@@ -209,13 +226,21 @@ Do NOT rewrite files from scratch. Fix only the specific issues above."""
 
 Fix these specific issues. Do NOT rewrite files from scratch."""
 
-        coder_result = run_coder(
-            model=current_model,
-            message=retry_msg,
-            project_path=cfg.project_path,
-            read_only_files=memory_files,
-            timeout=cfg.pipeline.aider_timeout,
-        )
+        try:
+            coder_result = run_coder(
+                model=current_model,
+                message=retry_msg,
+                project_path=cfg.project_path,
+                read_only_files=memory_files,
+                timeout=cfg.pipeline.aider_timeout,
+            )
+        except AiderFatalError as e:
+            return StepResult(
+                status=StepStatus.ERROR,
+                step=step,
+                summary=f"Step {step.step_id} failed: Coder encountered a fatal error during junior review retry",
+                details=str(e),
+            )
 
         # Re-run hooks after coder fix
         hooks_passed, hook_errors = run_pre_commit(
@@ -225,13 +250,21 @@ Fix these specific issues. Do NOT rewrite files from scratch."""
             retry_msg = (
                 f"Pre-commit hooks failed again:\n{hook_errors}\nFix these issues."
             )
-            run_coder(
-                model=current_model,
-                message=retry_msg,
-                project_path=cfg.project_path,
-                read_only_files=memory_files,
-                timeout=cfg.pipeline.aider_timeout,
-            )
+            try:
+                coder_result = run_coder(
+                    model=current_model,
+                    message=retry_msg,
+                    project_path=cfg.project_path,
+                    read_only_files=memory_files,
+                    timeout=cfg.pipeline.aider_timeout,
+                )
+            except AiderFatalError as e:
+                return StepResult(
+                    status=StepStatus.ERROR,
+                    step=step,
+                    summary=f"Step {step.step_id} failed: Coder encountered a fatal error fixing hooks after junior review",
+                    details=str(e),
+                )
 
     # 6. If junior loop exhausted, escalate to senior for guidance
     senior_rounds = 0
@@ -258,13 +291,21 @@ Fix these specific issues. Do NOT rewrite files from scratch."""
 
 Follow this guidance precisely. Fix the issues described above."""
 
-            coder_result = run_coder(
-                model=current_model,
-                message=retry_msg,
-                project_path=cfg.project_path,
-                read_only_files=memory_files,
-                timeout=cfg.pipeline.aider_timeout,
-            )
+            try:
+                coder_result = run_coder(
+                    model=current_model,
+                    message=retry_msg,
+                    project_path=cfg.project_path,
+                    read_only_files=memory_files,
+                    timeout=cfg.pipeline.aider_timeout,
+                )
+            except AiderFatalError as e:
+                return StepResult(
+                    status=StepStatus.ERROR,
+                    step=step,
+                    summary=f"Step {step.step_id} failed: Coder encountered a fatal error applying senior guidance",
+                    details=str(e),
+                )
 
             # Quick hook + junior check
             hooks_passed, hook_errors = run_pre_commit(
@@ -309,13 +350,21 @@ Follow this guidance precisely. Fix the issues described above."""
 
 This is the final review round. Fix these issues precisely."""
 
-        coder_result = run_coder(
-            model=current_model,
-            message=retry_msg,
-            project_path=cfg.project_path,
-            read_only_files=memory_files,
-            timeout=cfg.pipeline.aider_timeout,
-        )
+        try:
+            coder_result = run_coder(
+                model=current_model,
+                message=retry_msg,
+                project_path=cfg.project_path,
+                read_only_files=memory_files,
+                timeout=cfg.pipeline.aider_timeout,
+            )
+        except AiderFatalError as e:
+            return StepResult(
+                status=StepStatus.ERROR,
+                step=step,
+                summary=f"Step {step.step_id} failed: Coder encountered a fatal error applying final senior review feedback",
+                details=str(e),
+            )
 
         # Re-run hooks
         hooks_passed, _ = run_pre_commit(cfg.project_path, cfg.pre_commit.commands)
