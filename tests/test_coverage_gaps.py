@@ -3,15 +3,13 @@
 These tests cover specific branches that weren't hit by the main test suite.
 """
 
-import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from src.aider_client import AiderResult, run_reviewer
 from src.memory import Step, get_coder_context, update_memory
-from src.pipeline import StepResult, StepStatus, execute_step
+from src.pipeline import StepStatus, execute_step
 from src.reviewers import parse_verdict
 
 
@@ -24,11 +22,15 @@ def _make_proc(returncode: int = 0, stdout: str = "ok", stderr: str = "") -> Mag
 
 
 def _ok_aider(output: str = "done", files: list[str] | None = None) -> AiderResult:
-    return AiderResult(success=True, output=output, error="", changed_files=files or ["src/foo.py"])
+    return AiderResult(
+        success=True, output=output, error="", changed_files=files or ["src/foo.py"]
+    )
 
 
 def _pass_review() -> AiderResult:
-    return AiderResult(success=True, output="VERDICT: PASS\n\nSUMMARY: ok", error="", changed_files=[])
+    return AiderResult(
+        success=True, output="VERDICT: PASS\n\nSUMMARY: ok", error="", changed_files=[]
+    )
 
 
 def _fail_review() -> AiderResult:
@@ -43,6 +45,7 @@ def _fail_review() -> AiderResult:
 # ---------------------------------------------------------------------------
 # reviewers.py — parse_verdict VERDICT:-less text -> defaulting to False
 # ---------------------------------------------------------------------------
+
 
 class TestParseVerdictFallback:
     def test_no_verdict_anywhere_defaults_to_false(self) -> None:
@@ -60,6 +63,7 @@ class TestParseVerdictFallback:
 # aider_client.py — nonexistent review file skipped (filepath.exists() False)
 # ---------------------------------------------------------------------------
 
+
 class TestRunReviewerNonexistentFile:
     def test_nonexistent_review_file_not_added(self, tmp_path: Path) -> None:
         """If review file doesn't exist, --read arg is skipped."""
@@ -70,7 +74,9 @@ class TestRunReviewerNonexistentFile:
                 _make_proc(0, ""),
             ]
             run_reviewer(
-                "test/model", "review this", tmp_path,
+                "test/model",
+                "review this",
+                tmp_path,
                 review_files=["src/does_not_exist.py"],
             )
 
@@ -81,6 +87,7 @@ class TestRunReviewerNonexistentFile:
 # ---------------------------------------------------------------------------
 # memory.py — plan_dir exists but NO file matches step_id glob
 # ---------------------------------------------------------------------------
+
 
 class TestGetCoderContextPlanDirNoMatch:
     def test_plan_dir_exists_but_no_matching_plan_file(
@@ -100,6 +107,7 @@ class TestGetCoderContextPlanDirNoMatch:
 # memory.py — update_memory with only ARCHITECTURE section (PROGRESS missing)
 # ---------------------------------------------------------------------------
 
+
 class TestUpdateMemoryOnlyArchSection:
     def _mock_response(self, text: str) -> MagicMock:
         msg = MagicMock()
@@ -117,10 +125,14 @@ class TestUpdateMemoryOnlyArchSection:
         only_arch = "===ARCHITECTURE===\n# Architecture\n\nNew arch content.\n"
         original_progress = (memory_path / "PROGRESS.md").read_text()
 
-        with patch("src.memory.litellm.completion", return_value=self._mock_response(only_arch)):
+        with patch(
+            "src.memory.litellm.completion", return_value=self._mock_response(only_arch)
+        ):
             update_memory(memory_path, sample_step, "diff", "review", "test/model")
 
-        assert (memory_path / "ARCHITECTURE.md").read_text().startswith("# Architecture")
+        assert (
+            (memory_path / "ARCHITECTURE.md").read_text().startswith("# Architecture")
+        )
         assert (memory_path / "PROGRESS.md").read_text() == original_progress
 
 
@@ -128,17 +140,19 @@ class TestUpdateMemoryOnlyArchSection:
 # pipeline.py — max_hook_retries=0 skips hook loop (hooks_passed defaults True)
 # ---------------------------------------------------------------------------
 
+
 class TestExecuteStepZeroHookRetries:
-    def test_zero_hook_retries_passes_through(self, forge_config, memory_path: Path) -> None:
+    def test_zero_hook_retries_passes_through(
+        self, forge_config, memory_path: Path
+    ) -> None:
         """max_hook_retries=0 → while loop exits immediately; hooks_passed=True."""
         forge_config.pipeline.max_hook_retries = 0
 
         with (
             patch("src.pipeline.run_coder", return_value=_ok_aider()),
-            patch("src.pipeline.run_pre_commit") as mock_hooks_fn,
+            patch("src.pipeline.run_pre_commit"),
             patch("src.pipeline.run_junior_review", return_value=_pass_review()),
             patch("src.pipeline.run_senior_review", return_value=_pass_review()),
-            patch("src.pipeline.get_diff", return_value="diff"),
         ):
             result = execute_step(forge_config)
 
@@ -152,8 +166,11 @@ class TestExecuteStepZeroHookRetries:
 # while loop exits immediately, escalation skipped
 # ---------------------------------------------------------------------------
 
+
 class TestExecuteStepZeroJuniorRetries:
-    def test_zero_junior_retries_uses_default_pass(self, forge_config, memory_path: Path) -> None:
+    def test_zero_junior_retries_uses_default_pass(
+        self, forge_config, memory_path: Path
+    ) -> None:
         """max_junior_retries=0 → while loop never runs → jr_result defaults to PASS
         → escalation condition is False → goes straight to senior review."""
         forge_config.pipeline.max_junior_retries = 0
@@ -163,7 +180,6 @@ class TestExecuteStepZeroJuniorRetries:
             patch("src.pipeline.run_pre_commit", return_value=(True, "")),
             patch("src.pipeline.run_junior_review") as mock_junior,
             patch("src.pipeline.run_senior_review", return_value=_pass_review()),
-            patch("src.pipeline.get_diff", return_value="diff"),
         ):
             result = execute_step(forge_config)
 
@@ -177,6 +193,7 @@ class TestExecuteStepZeroJuniorRetries:
 # → senior_rounds incremented (second iteration of senior while loop)
 # This tests the branch: hooks_passed=True → jr_recheck=FAIL → continue
 # ---------------------------------------------------------------------------
+
 
 class TestSeniorEscalationJuniorRecheckFails:
     def test_junior_recheck_fails_inside_senior_loop(
@@ -200,7 +217,9 @@ class TestSeniorEscalationJuniorRecheckFails:
             # hooks always pass (main loop + senior guidance loop)
             patch("src.pipeline.run_pre_commit", return_value=(True, "")),
             patch("src.pipeline.run_junior_review", side_effect=_junior),
-            patch("src.pipeline.get_senior_guidance", return_value=_ok_aider("try this")),
+            patch(
+                "src.pipeline.get_senior_guidance", return_value=_ok_aider("try this")
+            ),
         ):
             result = execute_step(forge_config)
 
@@ -209,7 +228,9 @@ class TestSeniorEscalationJuniorRecheckFails:
         # Verify recheck was called inside the senior loop
         assert junior_count["n"] >= 2
 
-    def test_hooks_fail_inside_senior_loop(self, forge_config, memory_path: Path) -> None:
+    def test_hooks_fail_inside_senior_loop(
+        self, forge_config, memory_path: Path
+    ) -> None:
         """After senior guidance: coder runs, but HOOKS FAIL → jr_recheck skipped
         → senior_rounds incremented → exhausted → FAILED.
         This covers the 264→274 false branch (if hooks_passed: ... skipped)."""
@@ -236,7 +257,6 @@ class TestSeniorEscalationJuniorRecheckFails:
 
         assert result.status == StepStatus.FAILED
         assert "senior escalation" in result.summary
-
 
 
 # Note: the `if __name__ == "__main__"` blocks in forge_init.py and src/__main__.py

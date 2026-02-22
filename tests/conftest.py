@@ -1,11 +1,16 @@
 """Shared fixtures for Forge tests."""
 
-import json
 from pathlib import Path
 
 import pytest
 
-from src.config import ForgeConfig, ModelsConfig, PipelineConfig, PreCommitConfig, TelegramConfig
+from src.config import (
+    ForgeConfig,
+    ModelsConfig,
+    PipelineConfig,
+    PreCommitConfig,
+    TelegramConfig,
+)
 from src.memory import Step
 
 

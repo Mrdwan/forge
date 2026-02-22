@@ -41,8 +41,10 @@ def run_coder(
     """
     cmd = [
         "aider",
-        "--model", model,
-        "--message", message,
+        "--model",
+        model,
+        "--message",
+        message,
         "--yes-always",
         "--no-auto-commits",
         "--no-stream",
@@ -78,9 +80,12 @@ def run_reviewer(
     """
     cmd = [
         "aider",
-        "--model", model,
-        "--chat-mode", "ask",
-        "--message", message,
+        "--model",
+        model,
+        "--chat-mode",
+        "ask",
+        "--message",
+        message,
         "--no-stream",
         "--no-suggest-shell-commands",
     ]
@@ -144,7 +149,10 @@ def get_diff(project_path: Path) -> str:
 
         # Truncate if too long (keep first 3000 chars)
         if len(diff) > 3000:
-            diff = diff[:3000] + "\n\n... [diff truncated, use Aider /read to see full files]"
+            diff = (
+                diff[:3000]
+                + "\n\n... [diff truncated, use Aider /read to see full files]"
+            )
 
         return f"Diff stats:\n{stat}\n\nDiff:\n{diff}"
     except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:

@@ -1,13 +1,9 @@
 """Unit tests for src/__main__.py."""
 
 import sys
-import logging
-from io import StringIO
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-from src.cli import COMMANDS
 
 
 class TestMain:
@@ -18,7 +14,9 @@ class TestMain:
     calls mocked at the source level.
     """
 
-    def _run_main(self, argv: list[str], mock_cfg: MagicMock | None = None) -> MagicMock:
+    def _run_main(
+        self, argv: list[str], mock_cfg: MagicMock | None = None
+    ) -> MagicMock:
         """Helper: run main() with mocked load_config, run_bot, and FileHandler."""
         if mock_cfg is None:
             mock_cfg = MagicMock()
@@ -34,6 +32,7 @@ class TestMain:
             patch.object(sys, "argv", argv),
         ):
             from src.__main__ import main
+
             main()
             return mock_load, mock_run_bot, mock_cfg
 
@@ -45,6 +44,7 @@ class TestMain:
             patch.object(sys, "argv", ["forge"]),
         ):
             from src.__main__ import main
+
             main()
         mock_load.assert_called_once_with("config.yaml")
 
@@ -56,6 +56,7 @@ class TestMain:
             patch.object(sys, "argv", ["forge", "/custom/path/config.yaml"]),
         ):
             from src.__main__ import main
+
             main()
         mock_load.assert_called_once_with("/custom/path/config.yaml")
 
@@ -68,6 +69,7 @@ class TestMain:
             patch.object(sys, "argv", ["forge"]),
         ):
             from src.__main__ import main
+
             main()
         mock_run_bot.assert_called_once_with(mock_cfg)
 
@@ -85,6 +87,7 @@ class TestMain:
             patch.object(sys, "argv", ["forge"]),
         ):
             from src.__main__ import main
+
             main()
 
         captured = capsys.readouterr()
@@ -103,6 +106,7 @@ class TestMain:
             patch.object(sys, "argv", ["forge", "next"]),
         ):
             from src.__main__ import main
+
             main()
         mock_run_cli.assert_called_once_with(mock_cfg, ["next"])
         mock_run_bot.assert_not_called()
@@ -118,6 +122,7 @@ class TestMain:
             patch.object(sys, "argv", ["forge"]),
         ):
             from src.__main__ import main
+
             main()
         mock_run_bot.assert_called_once_with(mock_cfg)
         mock_run_cli.assert_not_called()

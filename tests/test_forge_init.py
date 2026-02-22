@@ -1,18 +1,17 @@
 """Unit tests for forge_init.py."""
 
-import subprocess
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-import forge_init
 from forge_init import create_project, main
 
 
 # ---------------------------------------------------------------------------
 # create_project
 # ---------------------------------------------------------------------------
+
 
 class TestCreateProject:
     def test_creates_expected_directory_structure(self, tmp_path: Path) -> None:
@@ -31,7 +30,13 @@ class TestCreateProject:
             mock_run.return_value = MagicMock(returncode=0)
             root = create_project("test-proj", tmp_path)
 
-        for fname in ["ARCHITECTURE.md", "ROADMAP.md", "DECISIONS.md", "PROGRESS.md", "CHANGELOG.md"]:
+        for fname in [
+            "ARCHITECTURE.md",
+            "ROADMAP.md",
+            "DECISIONS.md",
+            "PROGRESS.md",
+            "CHANGELOG.md",
+        ]:
             assert (root / "memory" / fname).exists(), f"{fname} missing"
 
     def test_roadmap_contains_placeholder_steps(self, tmp_path: Path) -> None:
@@ -113,10 +118,15 @@ class TestCreateProject:
 # main() — CLI entry point
 # ---------------------------------------------------------------------------
 
+
 class TestMain:
-    def test_default_path_is_current_dir(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    def test_default_path_is_current_dir(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
         with (
-            patch("forge_init.create_project", return_value=tmp_path / "my-app") as mock_create,
+            patch(
+                "forge_init.create_project", return_value=tmp_path / "my-app"
+            ) as mock_create,
             patch("sys.argv", ["forge_init.py", "my-app"]),
         ):
             main()
@@ -125,16 +135,22 @@ class TestMain:
         captured = capsys.readouterr()
         assert "my-app" in captured.out
 
-    def test_custom_path_passed_to_create_project(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    def test_custom_path_passed_to_create_project(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
         with (
-            patch("forge_init.create_project", return_value=tmp_path / "proj") as mock_create,
+            patch(
+                "forge_init.create_project", return_value=tmp_path / "proj"
+            ) as mock_create,
             patch("sys.argv", ["forge_init.py", "proj", "--path", str(tmp_path)]),
         ):
             main()
 
         mock_create.assert_called_once_with("proj", tmp_path)
 
-    def test_prints_next_steps(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    def test_prints_next_steps(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
         with (
             patch("forge_init.create_project", return_value=tmp_path / "proj"),
             patch("sys.argv", ["forge_init.py", "proj"]),

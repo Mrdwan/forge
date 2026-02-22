@@ -52,3 +52,19 @@ services:
       dockerfile: Dockerfile.test
     container_name: forge-test
     profiles: [ "test" ]
+
+  forge-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: forge-dev
+    profiles: [ "dev" ]
+    working_dir: /app
+    volumes:
+      # Mount live source so ruff/pytest always see the current code
+      - .:/app
+      # Isolate pre-commit hook cache inside the container
+      - pre-commit-cache:/tmp/pre-commit-cache
+
+volumes:
+  pre-commit-cache:

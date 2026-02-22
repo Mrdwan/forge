@@ -2,12 +2,10 @@
 
 import subprocess
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
-import pytest
 
 from src.aider_client import (
-    AiderResult,
     commit_changes,
     get_changed_files,
     get_diff,
@@ -29,13 +27,14 @@ def _make_proc(returncode: int = 0, stdout: str = "", stderr: str = "") -> Magic
 # run_coder
 # ---------------------------------------------------------------------------
 
+
 class TestRunCoder:
     def test_success(self, tmp_path: Path) -> None:
         with patch("src.aider_client.subprocess.run") as mock_run:
             mock_run.side_effect = [
                 _make_proc(0, "Done editing."),  # aider
-                _make_proc(0, "src/foo.py\n"),   # git diff --name-only HEAD
-                _make_proc(0, ""),               # git ls-files untracked
+                _make_proc(0, "src/foo.py\n"),  # git diff --name-only HEAD
+                _make_proc(0, ""),  # git ls-files untracked
             ]
             result = run_coder("test/model", "do stuff", tmp_path)
 
@@ -54,7 +53,12 @@ class TestRunCoder:
                 _make_proc(0, ""),
                 _make_proc(0, ""),
             ]
-            run_coder("test/model", "do stuff", tmp_path, read_only_files=["memory/ARCHITECTURE.md"])
+            run_coder(
+                "test/model",
+                "do stuff",
+                tmp_path,
+                read_only_files=["memory/ARCHITECTURE.md"],
+            )
 
         cmd = mock_run.call_args_list[0][0][0]
         assert "--read" in cmd
@@ -66,7 +70,9 @@ class TestRunCoder:
                 _make_proc(0, ""),
                 _make_proc(0, ""),
             ]
-            run_coder("test/model", "do stuff", tmp_path, read_only_files=["nonexistent.md"])
+            run_coder(
+                "test/model", "do stuff", tmp_path, read_only_files=["nonexistent.md"]
+            )
 
         cmd = mock_run.call_args_list[0][0][0]
         assert "--read" not in cmd
@@ -96,7 +102,10 @@ class TestRunCoder:
         assert "exited with code 2" in result.error
 
     def test_timeout_returns_failure(self, tmp_path: Path) -> None:
-        with patch("src.aider_client.subprocess.run", side_effect=subprocess.TimeoutExpired("aider", 30)):
+        with patch(
+            "src.aider_client.subprocess.run",
+            side_effect=subprocess.TimeoutExpired("aider", 30),
+        ):
             result = run_coder("test/model", "do stuff", tmp_path, timeout=30)
 
         assert result.success is False
@@ -113,6 +122,7 @@ class TestRunCoder:
 # ---------------------------------------------------------------------------
 # run_reviewer
 # ---------------------------------------------------------------------------
+
 
 class TestRunReviewer:
     def test_uses_ask_mode(self, tmp_path: Path) -> None:
@@ -139,7 +149,9 @@ class TestRunReviewer:
                 _make_proc(0, ""),
                 _make_proc(0, ""),
             ]
-            run_reviewer("test/model", "review this", tmp_path, review_files=["src/foo.py"])
+            run_reviewer(
+                "test/model", "review this", tmp_path, review_files=["src/foo.py"]
+            )
 
         cmd = mock_run.call_args_list[0][0][0]
         assert "--read" in cmd
@@ -148,6 +160,7 @@ class TestRunReviewer:
 # ---------------------------------------------------------------------------
 # get_changed_files
 # ---------------------------------------------------------------------------
+
 
 class TestGetChangedFiles:
     def test_merges_diff_and_untracked(self, tmp_path: Path) -> None:
@@ -172,12 +185,17 @@ class TestGetChangedFiles:
         assert files == []
 
     def test_subprocess_error_returns_empty(self, tmp_path: Path) -> None:
-        with patch("src.aider_client.subprocess.run", side_effect=subprocess.SubprocessError):
+        with patch(
+            "src.aider_client.subprocess.run", side_effect=subprocess.SubprocessError
+        ):
             files = get_changed_files(tmp_path)
         assert files == []
 
     def test_timeout_returns_empty(self, tmp_path: Path) -> None:
-        with patch("src.aider_client.subprocess.run", side_effect=subprocess.TimeoutExpired("git", 30)):
+        with patch(
+            "src.aider_client.subprocess.run",
+            side_effect=subprocess.TimeoutExpired("git", 30),
+        ):
             files = get_changed_files(tmp_path)
         assert files == []
 
@@ -185,6 +203,7 @@ class TestGetChangedFiles:
 # ---------------------------------------------------------------------------
 # get_diff
 # ---------------------------------------------------------------------------
+
 
 class TestGetDiff:
     def test_returns_stat_and_diff(self, tmp_path: Path) -> None:
@@ -211,12 +230,17 @@ class TestGetDiff:
         assert len(result) < 5000
 
     def test_subprocess_error_returns_placeholder(self, tmp_path: Path) -> None:
-        with patch("src.aider_client.subprocess.run", side_effect=subprocess.SubprocessError):
+        with patch(
+            "src.aider_client.subprocess.run", side_effect=subprocess.SubprocessError
+        ):
             result = get_diff(tmp_path)
         assert "Could not generate diff" in result
 
     def test_timeout_returns_placeholder(self, tmp_path: Path) -> None:
-        with patch("src.aider_client.subprocess.run", side_effect=subprocess.TimeoutExpired("git", 30)):
+        with patch(
+            "src.aider_client.subprocess.run",
+            side_effect=subprocess.TimeoutExpired("git", 30),
+        ):
             result = get_diff(tmp_path)
         assert "Could not generate diff" in result
 
@@ -224,6 +248,7 @@ class TestGetDiff:
 # ---------------------------------------------------------------------------
 # commit_changes
 # ---------------------------------------------------------------------------
+
 
 class TestCommitChanges:
     def test_success(self, tmp_path: Path) -> None:
@@ -233,12 +258,18 @@ class TestCommitChanges:
         assert result is True
 
     def test_called_process_error_returns_false(self, tmp_path: Path) -> None:
-        with patch("src.aider_client.subprocess.run", side_effect=subprocess.CalledProcessError(1, "git")):
+        with patch(
+            "src.aider_client.subprocess.run",
+            side_effect=subprocess.CalledProcessError(1, "git"),
+        ):
             result = commit_changes(tmp_path, "feat(1.1): built thing")
         assert result is False
 
     def test_timeout_returns_false(self, tmp_path: Path) -> None:
-        with patch("src.aider_client.subprocess.run", side_effect=subprocess.TimeoutExpired("git", 30)):
+        with patch(
+            "src.aider_client.subprocess.run",
+            side_effect=subprocess.TimeoutExpired("git", 30),
+        ):
             result = commit_changes(tmp_path, "feat(1.1): built thing")
         assert result is False
 
@@ -246,6 +277,7 @@ class TestCommitChanges:
 # ---------------------------------------------------------------------------
 # reset_changes
 # ---------------------------------------------------------------------------
+
 
 class TestResetChanges:
     def test_success(self, tmp_path: Path) -> None:
@@ -255,11 +287,17 @@ class TestResetChanges:
         assert result is True
 
     def test_called_process_error_returns_false(self, tmp_path: Path) -> None:
-        with patch("src.aider_client.subprocess.run", side_effect=subprocess.CalledProcessError(1, "git")):
+        with patch(
+            "src.aider_client.subprocess.run",
+            side_effect=subprocess.CalledProcessError(1, "git"),
+        ):
             result = reset_changes(tmp_path)
         assert result is False
 
     def test_timeout_returns_false(self, tmp_path: Path) -> None:
-        with patch("src.aider_client.subprocess.run", side_effect=subprocess.TimeoutExpired("git", 30)):
+        with patch(
+            "src.aider_client.subprocess.run",
+            side_effect=subprocess.TimeoutExpired("git", 30),
+        ):
             result = reset_changes(tmp_path)
         assert result is False

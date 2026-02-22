@@ -50,16 +50,19 @@ def _no_steps_result() -> StepResult:
     return StepResult(status=StepStatus.NO_STEPS, step=None, summary="All done.")
 
 
-def _make_bot(state_dir: Path, initial_state: BotState = BotState.IDLE, forge_config=None):
+def _make_bot(
+    state_dir: Path, initial_state: BotState = BotState.IDLE, forge_config=None
+):
     """Create a ForgeBot with state file in tmp_path, skip actual state read."""
     state_file = state_dir / "forge_state.json"
     with patch("src.bot.STATE_FILE", str(state_file)):
         bot = ForgeBot(forge_config)
     bot.state = initial_state
     # Real _save_state so we can verify persistence
-    original_save = bot._save_state
+
     def _patched_save():
         state_file.write_text(json.dumps({"state": bot.state.value}))
+
     bot._save_state = _patched_save
     bot._state_file = state_file
     return bot
@@ -69,9 +72,12 @@ def _make_bot(state_dir: Path, initial_state: BotState = BotState.IDLE, forge_co
 # Complete success flow: /next → go → commit
 # ---------------------------------------------------------------------------
 
+
 class TestBotSuccessFlow:
     @pytest.mark.asyncio
-    async def test_next_go_success_commit_flow(self, tmp_path: Path, forge_config) -> None:
+    async def test_next_go_success_commit_flow(
+        self, tmp_path: Path, forge_config
+    ) -> None:
         """/next → go → step succeeds → commit → back to IDLE."""
         bot = _make_bot(tmp_path, BotState.IDLE, forge_config)
         step = _make_step()
@@ -104,7 +110,9 @@ class TestBotSuccessFlow:
         assert "1.1" in reply
 
     @pytest.mark.asyncio
-    async def test_state_persists_to_disk_during_flow(self, tmp_path: Path, forge_config) -> None:
+    async def test_state_persists_to_disk_during_flow(
+        self, tmp_path: Path, forge_config
+    ) -> None:
         """State file should be updated at each transition."""
         bot = _make_bot(tmp_path, BotState.IDLE, forge_config)
         update = _make_update()
@@ -120,9 +128,12 @@ class TestBotSuccessFlow:
 # Failure + retry flow
 # ---------------------------------------------------------------------------
 
+
 class TestBotFailureAndRetry:
     @pytest.mark.asyncio
-    async def test_failure_then_retry_then_commit(self, tmp_path: Path, forge_config) -> None:
+    async def test_failure_then_retry_then_commit(
+        self, tmp_path: Path, forge_config
+    ) -> None:
         """Execute fails → retry → success → commit."""
         bot = _make_bot(tmp_path, BotState.CONFIRMING, forge_config)
 
@@ -170,6 +181,7 @@ class TestBotFailureAndRetry:
 # Skip before execution + no steps
 # ---------------------------------------------------------------------------
 
+
 class TestBotSkipAndNoSteps:
     @pytest.mark.asyncio
     async def test_skip_before_execution(self, tmp_path: Path, forge_config) -> None:
@@ -195,6 +207,7 @@ class TestBotSkipAndNoSteps:
 # State persistence across restart
 # ---------------------------------------------------------------------------
 
+
 class TestBotStatePersistence:
     def test_state_survives_restart(self, tmp_path: Path, forge_config) -> None:
         """Simulates a process restart: state written by bot1 is loaded by bot2."""
@@ -211,9 +224,12 @@ class TestBotStatePersistence:
 # Invalid replies in each state
 # ---------------------------------------------------------------------------
 
+
 class TestBotInvalidReplies:
     @pytest.mark.asyncio
-    async def test_invalid_reply_in_confirming(self, tmp_path: Path, forge_config) -> None:
+    async def test_invalid_reply_in_confirming(
+        self, tmp_path: Path, forge_config
+    ) -> None:
         bot = _make_bot(tmp_path, BotState.CONFIRMING, forge_config)
         update = _make_update("what is happening")
         await bot.handle_message(update, MagicMock())
@@ -222,7 +238,9 @@ class TestBotInvalidReplies:
         assert bot.state == BotState.CONFIRMING  # state unchanged
 
     @pytest.mark.asyncio
-    async def test_invalid_reply_in_awaiting_commit(self, tmp_path: Path, forge_config) -> None:
+    async def test_invalid_reply_in_awaiting_commit(
+        self, tmp_path: Path, forge_config
+    ) -> None:
         bot = _make_bot(tmp_path, BotState.AWAITING_COMMIT, forge_config)
         update = _make_update("yes please")
         await bot.handle_message(update, MagicMock())

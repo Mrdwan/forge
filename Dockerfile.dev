@@ -1,0 +1,20 @@
+FROM python:3.13-slim
+
+# git is needed for pre-commit (checks staged files)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install dev/test deps including pre-commit and ruff
+COPY requirements-test.txt .
+RUN pip install --no-cache-dir -r requirements-test.txt
+
+# pre-commit caches hook envs here; keep it writable inside the container
+ENV PRE_COMMIT_HOME=/tmp/pre-commit-cache
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+# Default: run pre-commit on all files, then full test suite with coverage
+CMD ["sh", "-c", "pre-commit run --all-files && pytest tests/ -v --cov=src --cov=forge_init --cov-report=term-missing --cov-branch --cov-fail-under=100"]

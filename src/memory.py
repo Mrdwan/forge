@@ -60,9 +60,6 @@ def find_next_step(memory_path: Path, pattern: str) -> Step | None:
     return None  # All steps completed
 
 
-
-
-
 def get_coder_context(memory_path: Path, step: Step) -> str:
     """Build the full context prompt for the coder.
 
@@ -202,7 +199,11 @@ Format:
             if marker in result:
                 start = result.index(marker) + len(marker)
                 # Find next marker or end
-                next_markers = [f"==={s}===" for s in ["ROADMAP", "ARCHITECTURE", "DECISIONS"] if s != section_name]
+                next_markers = [
+                    f"==={s}==="
+                    for s in ["ROADMAP", "ARCHITECTURE", "DECISIONS"]
+                    if s != section_name
+                ]
                 end = len(result)
                 for nm in next_markers:
                     if nm in result[start:]:
@@ -237,4 +238,6 @@ Format:
             new_line = old_line.replace("- [ ]", "- [x]", 1)
             current_roadmap = roadmap.read_text().replace(old_line, new_line, 1)
             roadmap.write_text(current_roadmap)
-            logger.info(f"Marked Step {step.step_id} complete in ROADMAP.md (exception fallback)")
+            logger.info(
+                f"Marked Step {step.step_id} complete in ROADMAP.md (exception fallback)"
+            )

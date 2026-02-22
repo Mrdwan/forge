@@ -19,7 +19,6 @@ from pathlib import Path
 
 from src.aider_client import (
     commit_changes,
-    get_diff,
     reset_changes,
     run_coder,
 )
@@ -133,7 +132,10 @@ def execute_step(cfg: ForgeConfig) -> StepResult:
 
     # 4. Pre-commit hooks
     hook_retries = 0
-    hooks_passed, hook_errors = True, ""  # default: pass (if max_hook_retries=0, skip loop)
+    hooks_passed, hook_errors = (
+        True,
+        "",
+    )  # default: pass (if max_hook_retries=0, skip loop)
     while hook_retries < cfg.pipeline.max_hook_retries:
         hooks_passed, hook_errors = run_pre_commit(
             cfg.project_path, cfg.pre_commit.commands
@@ -142,7 +144,9 @@ def execute_step(cfg: ForgeConfig) -> StepResult:
             break
 
         hook_retries += 1
-        logger.info(f"Pre-commit failed, retry {hook_retries}/{cfg.pipeline.max_hook_retries}")
+        logger.info(
+            f"Pre-commit failed, retry {hook_retries}/{cfg.pipeline.max_hook_retries}"
+        )
 
         if hook_retries >= cfg.pipeline.max_hook_retries:
             break
@@ -191,7 +195,9 @@ Do NOT rewrite files from scratch. Fix only the specific issues above."""
         junior_retries += 1
         junior_feedback = jr_result.output
         issues = extract_issues(jr_result.output)
-        logger.info(f"Junior review: FAIL (retry {junior_retries}/{cfg.pipeline.max_junior_retries})")
+        logger.info(
+            f"Junior review: FAIL (retry {junior_retries}/{cfg.pipeline.max_junior_retries})"
+        )
 
         if junior_retries >= cfg.pipeline.max_junior_retries:
             break
@@ -216,7 +222,9 @@ Fix these specific issues. Do NOT rewrite files from scratch."""
             cfg.project_path, cfg.pre_commit.commands
         )
         if not hooks_passed:
-            retry_msg = f"Pre-commit hooks failed again:\n{hook_errors}\nFix these issues."
+            retry_msg = (
+                f"Pre-commit hooks failed again:\n{hook_errors}\nFix these issues."
+            )
             run_coder(
                 model=current_model,
                 message=retry_msg,
@@ -227,7 +235,9 @@ Fix these specific issues. Do NOT rewrite files from scratch."""
 
     # 6. If junior loop exhausted, escalate to senior for guidance
     senior_rounds = 0
-    if junior_retries >= cfg.pipeline.max_junior_retries and not parse_verdict(jr_result.output):
+    if junior_retries >= cfg.pipeline.max_junior_retries and not parse_verdict(
+        jr_result.output
+    ):
         logger.info("Junior loop exhausted, escalating to senior for guidance")
 
         while senior_rounds < cfg.pipeline.max_senior_rounds:
@@ -308,9 +318,7 @@ This is the final review round. Fix these issues precisely."""
         )
 
         # Re-run hooks
-        hooks_passed, _ = run_pre_commit(
-            cfg.project_path, cfg.pre_commit.commands
-        )
+        hooks_passed, _ = run_pre_commit(cfg.project_path, cfg.pre_commit.commands)
 
         if hooks_passed:
             # Junior quick check
@@ -355,7 +363,6 @@ This is the final review round. Fix these issues precisely."""
             )
 
     # 8. Success path — prepare for commit
-    diff_summary = get_diff(cfg.project_path)
     senior_summary = sr_result.output
 
     return StepResult(

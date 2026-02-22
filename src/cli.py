@@ -53,6 +53,7 @@ COMMANDS = {"next", "status", "skip", "reset"}
 # Telegram helper — synchronous, fire-and-forget
 # ---------------------------------------------------------------------------
 
+
 def notify_telegram(cfg: ForgeConfig, text: str) -> None:
     """Send *text* to Telegram via the Bot API (sync HTTP POST).
 
@@ -77,6 +78,7 @@ def notify_telegram(cfg: ForgeConfig, text: str) -> None:
 # Shared state helpers (share the same forge_state.json as the Telegram bot)
 # ---------------------------------------------------------------------------
 
+
 def _load_state() -> BotState:
     path = Path(STATE_FILE)
     if path.exists():
@@ -98,13 +100,16 @@ def _save_state(state: BotState) -> None:
 # CLI commands
 # ---------------------------------------------------------------------------
 
+
 def cmd_status(cfg: ForgeConfig) -> None:
     """Print the current pipeline state and next step."""
     state = _load_state()
     step = find_next_step(cfg.memory_path, cfg.unchecked_pattern)
-    step_info = f"Step {step.step_id}: {step.description}" if step else "All steps complete"
+    step_info = (
+        f"Step {step.step_id}: {step.description}" if step else "All steps complete"
+    )
 
-    print(f"\n🔧 Forge Status")
+    print("\n🔧 Forge Status")
     print(f"  State : {state.value}")
     print(f"  Next  : {step_info}")
     print(f"  Coder : {cfg.models.coder}")
@@ -157,7 +162,7 @@ def cmd_next(cfg: ForgeConfig, *, notify: bool = True) -> None:
             notify_telegram(cfg, msg)
         return
 
-    print(f"\n📋 Next step:")
+    print("\n📋 Next step:")
     print(f"   Step {step.step_id}: {step.description}\n")
     _save_state(BotState.CONFIRMING)
 
@@ -176,6 +181,7 @@ def cmd_next(cfg: ForgeConfig, *, notify: bool = True) -> None:
 # ---------------------------------------------------------------------------
 # Internal pipeline helpers
 # ---------------------------------------------------------------------------
+
 
 def _run_pipeline(cfg: ForgeConfig, *, notify: bool) -> None:
     """Execute the pipeline step, then handle the result interactively."""
@@ -240,7 +246,9 @@ def _handle_result(cfg: ForgeConfig, result: StepResult, *, notify: bool) -> Non
         _prompt_after_failure(cfg, result, notify=notify)
 
 
-def _prompt_commit(cfg: ForgeConfig, result: StepResult | None, *, notify: bool) -> None:
+def _prompt_commit(
+    cfg: ForgeConfig, result: StepResult | None, *, notify: bool
+) -> None:
     """Ask user to commit or discard a successful step."""
     while True:
         reply = _prompt("\nType 'commit' to save, 'stop' to discard: ").lower().strip()
@@ -276,7 +284,9 @@ def _prompt_commit(cfg: ForgeConfig, result: StepResult | None, *, notify: bool)
             print("  Please type 'commit' or 'stop'.")
 
 
-def _prompt_after_failure(cfg: ForgeConfig, result: StepResult, *, notify: bool) -> None:
+def _prompt_after_failure(
+    cfg: ForgeConfig, result: StepResult, *, notify: bool
+) -> None:
     """Ask user what to do after a pipeline failure."""
     while True:
         reply = _prompt("\nType 'retry', 'skip', or 'stop': ").lower().strip()
@@ -297,6 +307,7 @@ def _prompt_after_failure(cfg: ForgeConfig, result: StepResult, *, notify: bool)
 # Utilities
 # ---------------------------------------------------------------------------
 
+
 def _truncate(text: str, max_len: int) -> str:
     if len(text) <= max_len:
         return text
@@ -311,6 +322,7 @@ def _prompt(message: str) -> str:
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
 
 def run_cli(cfg: ForgeConfig, args: list[str]) -> None:
     """Dispatch a CLI command.

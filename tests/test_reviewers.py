@@ -1,9 +1,8 @@
 """Unit tests for src/reviewers.py."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pytest
 
 from src.aider_client import AiderResult
 from src.reviewers import (
@@ -22,6 +21,7 @@ def _make_aider_result(output: str = "", success: bool = True) -> AiderResult:
 # ---------------------------------------------------------------------------
 # parse_verdict
 # ---------------------------------------------------------------------------
+
 
 class TestParseVerdict:
     def test_verdict_pass_line(self) -> None:
@@ -47,17 +47,14 @@ class TestParseVerdict:
         assert parse_verdict("") is False
 
     def test_multiple_lines_finds_verdict_line(self) -> None:
-        review = (
-            "Looking at the code...\n"
-            "VERDICT: PASS\n"
-            "SUMMARY: Nice work.\n"
-        )
+        review = "Looking at the code...\nVERDICT: PASS\nSUMMARY: Nice work.\n"
         assert parse_verdict(review) is True
 
 
 # ---------------------------------------------------------------------------
 # extract_issues
 # ---------------------------------------------------------------------------
+
 
 class TestExtractIssues:
     def test_extracts_bullet_points_from_issues(self) -> None:
@@ -85,12 +82,7 @@ class TestExtractIssues:
         assert "This should NOT be captured" not in result
 
     def test_stops_at_suggestions_section(self) -> None:
-        review = (
-            "ISSUES:\n"
-            "- Real issue\n\n"
-            "SUGGESTIONS:\n"
-            "- Optional suggestion\n"
-        )
+        review = "ISSUES:\n- Real issue\n\nSUGGESTIONS:\n- Optional suggestion\n"
         result = extract_issues(review)
         assert "Real issue" in result
         assert "Optional suggestion" not in result
@@ -115,6 +107,7 @@ class TestExtractIssues:
 # ---------------------------------------------------------------------------
 # run_junior_review
 # ---------------------------------------------------------------------------
+
 
 class TestRunJuniorReview:
     def test_calls_run_reviewer_with_correct_args(self, tmp_path: Path) -> None:
@@ -167,6 +160,7 @@ class TestRunJuniorReview:
 # run_senior_review
 # ---------------------------------------------------------------------------
 
+
 class TestRunSeniorReview:
     def test_calls_run_reviewer(self, tmp_path: Path) -> None:
         expected = _make_aider_result("VERDICT: PASS\n\nSUMMARY: great")
@@ -198,6 +192,7 @@ class TestRunSeniorReview:
 # get_senior_guidance
 # ---------------------------------------------------------------------------
 
+
 class TestGetSeniorGuidance:
     def test_calls_run_reviewer_with_guidance_prompt(self, tmp_path: Path) -> None:
         expected = _make_aider_result("Fix the error handling in foo.py")
@@ -227,7 +222,9 @@ class TestGetSeniorGuidance:
             patch("src.reviewers.get_changed_files", return_value=[]),
             patch("src.reviewers.run_reviewer", return_value=expected) as mock_reviewer,
         ):
-            get_senior_guidance("m", "1.1", "desc", long_output, long_error, long_feedback, tmp_path)
+            get_senior_guidance(
+                "m", "1.1", "desc", long_output, long_error, long_feedback, tmp_path
+            )
 
         prompt = mock_reviewer.call_args.kwargs["message"]
         # Coder output truncated to 1500

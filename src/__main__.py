@@ -32,7 +32,7 @@ def main() -> None:
     config_path = args[0] if args else "config.yaml"
     cfg = load_config(config_path)
 
-    print(f"Forge starting")
+    print("Forge starting")
     print(f"  Project: {cfg.project_path}")
     print(f"  Coder: {cfg.models.coder}")
     print(f"  Junior: {cfg.models.junior_reviewer}")

@@ -11,9 +11,8 @@ and all edge-case branches in execute_step and finalize_step.
 """
 
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
-import pytest
 
 from src.aider_client import AiderResult
 from src.config import ForgeConfig
@@ -25,8 +24,13 @@ from src.memory import Step
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _ok_aider(output: str = "Implemented successfully.", files: list[str] | None = None) -> AiderResult:
-    return AiderResult(success=True, output=output, error="", changed_files=files or ["src/foo.py"])
+
+def _ok_aider(
+    output: str = "Implemented successfully.", files: list[str] | None = None
+) -> AiderResult:
+    return AiderResult(
+        success=True, output=output, error="", changed_files=files or ["src/foo.py"]
+    )
 
 
 def _empty_aider(error: str = "aider crashed") -> AiderResult:
@@ -64,15 +68,20 @@ def _make_proc(returncode: int = 0, stdout: str = "ok", stderr: str = "") -> Mag
 # Full happy path
 # ---------------------------------------------------------------------------
 
+
 class TestExecuteStepHappyPath:
-    def test_single_pass_through(self, forge_config: ForgeConfig, memory_path: Path) -> None:
+    def test_single_pass_through(
+        self, forge_config: ForgeConfig, memory_path: Path
+    ) -> None:
         """Coder → hooks pass → junior pass → senior pass → SUCCESS."""
         with (
             patch("src.pipeline.run_coder", return_value=_ok_aider()) as mock_coder,
             patch("src.pipeline.subprocess.run", return_value=_make_proc(0)),  # hooks
             patch("src.pipeline.run_junior_review", return_value=_pass_review()),
-            patch("src.pipeline.run_senior_review", return_value=_pass_review("Excellent.")) as mock_senior,
-            patch("src.pipeline.get_diff", return_value="diff text"),
+            patch(
+                "src.pipeline.run_senior_review",
+                return_value=_pass_review("Excellent."),
+            ) as mock_senior,
         ):
             result = execute_step(forge_config)
 
@@ -88,10 +97,15 @@ class TestExecuteStepHappyPath:
 # No steps
 # ---------------------------------------------------------------------------
 
+
 class TestExecuteStepNoSteps:
-    def test_returns_no_steps_when_roadmap_is_complete(self, forge_config: ForgeConfig, memory_path: Path) -> None:
+    def test_returns_no_steps_when_roadmap_is_complete(
+        self, forge_config: ForgeConfig, memory_path: Path
+    ) -> None:
         roadmap = memory_path / "ROADMAP.md"
-        roadmap.write_text("# Roadmap\n\n- [x] Step 1.1: Done\n- [x] Step 1.2: Also done\n")
+        roadmap.write_text(
+            "# Roadmap\n\n- [x] Step 1.1: Done\n- [x] Step 1.2: Also done\n"
+        )
         result = execute_step(forge_config)
         assert result.status == StepStatus.NO_STEPS
         assert result.step is None
@@ -101,8 +115,11 @@ class TestExecuteStepNoSteps:
 # Model fallback
 # ---------------------------------------------------------------------------
 
+
 class TestExecuteStepModelFallback:
-    def test_primary_fails_fallback_succeeds(self, forge_config: ForgeConfig, memory_path: Path) -> None:
+    def test_primary_fails_fallback_succeeds(
+        self, forge_config: ForgeConfig, memory_path: Path
+    ) -> None:
         """Primary coder returns no output → switch to fallback → continue pipeline."""
         call_count = {"n": 0}
 
@@ -117,14 +134,15 @@ class TestExecuteStepModelFallback:
             patch("src.pipeline.subprocess.run", return_value=_make_proc(0)),
             patch("src.pipeline.run_junior_review", return_value=_pass_review()),
             patch("src.pipeline.run_senior_review", return_value=_pass_review()),
-            patch("src.pipeline.get_diff", return_value="diff"),
         ):
             result = execute_step(forge_config)
 
         assert result.status == StepStatus.SUCCESS
         assert call_count["n"] == 2  # primary + fallback
 
-    def test_both_coders_fail_returns_failed(self, forge_config: ForgeConfig, memory_path: Path) -> None:
+    def test_both_coders_fail_returns_failed(
+        self, forge_config: ForgeConfig, memory_path: Path
+    ) -> None:
         with patch("src.pipeline.run_coder", return_value=_empty_aider("model down")):
             result = execute_step(forge_config)
 
@@ -136,8 +154,11 @@ class TestExecuteStepModelFallback:
 # Hook retry cycles
 # ---------------------------------------------------------------------------
 
+
 class TestExecuteStepHookRetries:
-    def test_hooks_fail_once_then_pass(self, forge_config: ForgeConfig, memory_path: Path) -> None:
+    def test_hooks_fail_once_then_pass(
+        self, forge_config: ForgeConfig, memory_path: Path
+    ) -> None:
         """Hooks fail on first run, coder fixes, hooks pass on second run."""
         hook_count = {"n": 0}
 
@@ -152,19 +173,23 @@ class TestExecuteStepHookRetries:
             patch("src.pipeline.subprocess.run", side_effect=_hook_side_effect),
             patch("src.pipeline.run_junior_review", return_value=_pass_review()),
             patch("src.pipeline.run_senior_review", return_value=_pass_review()),
-            patch("src.pipeline.get_diff", return_value="diff"),
         ):
             result = execute_step(forge_config)
 
         assert result.status == StepStatus.SUCCESS
 
-    def test_hooks_exhaust_all_retries_returns_failed(self, forge_config: ForgeConfig, memory_path: Path) -> None:
+    def test_hooks_exhaust_all_retries_returns_failed(
+        self, forge_config: ForgeConfig, memory_path: Path
+    ) -> None:
         """Hooks always fail → returns FAILED after max_hook_retries."""
         forge_config.pipeline.max_hook_retries = 2
 
         with (
             patch("src.pipeline.run_coder", return_value=_ok_aider()),
-            patch("src.pipeline.subprocess.run", return_value=_make_proc(1, "always fails")),
+            patch(
+                "src.pipeline.subprocess.run",
+                return_value=_make_proc(1, "always fails"),
+            ),
         ):
             result = execute_step(forge_config)
 
@@ -175,6 +200,7 @@ class TestExecuteStepHookRetries:
 # ---------------------------------------------------------------------------
 # Junior retry cycles
 # ---------------------------------------------------------------------------
+
 
 class TestExecuteStepJuniorRetries:
     def test_junior_fails_once_coder_fixes_junior_passes(
@@ -194,14 +220,15 @@ class TestExecuteStepJuniorRetries:
             patch("src.pipeline.subprocess.run", return_value=_make_proc(0)),
             patch("src.pipeline.run_junior_review", side_effect=_junior_side_effect),
             patch("src.pipeline.run_senior_review", return_value=_pass_review()),
-            patch("src.pipeline.get_diff", return_value="diff"),
         ):
             result = execute_step(forge_config)
 
         assert result.status == StepStatus.SUCCESS
         assert junior_count["n"] == 2
 
-    def test_junior_hooks_fail_after_coder_fix(self, forge_config: ForgeConfig, memory_path: Path) -> None:
+    def test_junior_hooks_fail_after_coder_fix(
+        self, forge_config: ForgeConfig, memory_path: Path
+    ) -> None:
         """During junior loop: junior fails → coder fixes → hooks STILL fail → coder fixes again."""
         hook_count = {"n": 0}
         junior_count = {"n": 0}
@@ -224,7 +251,6 @@ class TestExecuteStepJuniorRetries:
             patch("src.pipeline.subprocess.run", side_effect=_hook_side_effect),
             patch("src.pipeline.run_junior_review", side_effect=_junior_side_effect),
             patch("src.pipeline.run_senior_review", return_value=_pass_review()),
-            patch("src.pipeline.get_diff", return_value="diff"),
         ):
             result = execute_step(forge_config)
 
@@ -235,6 +261,7 @@ class TestExecuteStepJuniorRetries:
 # ---------------------------------------------------------------------------
 # Senior escalation
 # ---------------------------------------------------------------------------
+
 
 class TestExecuteStepSeniorEscalation:
     def test_junior_exhausted_senior_guides_coder_to_success(
@@ -256,9 +283,14 @@ class TestExecuteStepSeniorEscalation:
             patch("src.pipeline.run_coder", return_value=_ok_aider()),
             patch("src.pipeline.subprocess.run", return_value=_make_proc(0)),
             patch("src.pipeline.run_junior_review", side_effect=_junior_side_effect),
-            patch("src.pipeline.get_senior_guidance", return_value=_ok_aider("Fix the interface")),
-            patch("src.pipeline.run_senior_review", return_value=_pass_review("Excellent.")),
-            patch("src.pipeline.get_diff", return_value="diff"),
+            patch(
+                "src.pipeline.get_senior_guidance",
+                return_value=_ok_aider("Fix the interface"),
+            ),
+            patch(
+                "src.pipeline.run_senior_review",
+                return_value=_pass_review("Excellent."),
+            ),
         ):
             result = execute_step(forge_config)
 
@@ -274,8 +306,13 @@ class TestExecuteStepSeniorEscalation:
         with (
             patch("src.pipeline.run_coder", return_value=_ok_aider()),
             patch("src.pipeline.subprocess.run", return_value=_make_proc(0)),
-            patch("src.pipeline.run_junior_review", return_value=_fail_review("never happy")),
-            patch("src.pipeline.get_senior_guidance", return_value=_ok_aider("try this")),
+            patch(
+                "src.pipeline.run_junior_review",
+                return_value=_fail_review("never happy"),
+            ),
+            patch(
+                "src.pipeline.get_senior_guidance", return_value=_ok_aider("try this")
+            ),
         ):
             result = execute_step(forge_config)
 
@@ -286,6 +323,7 @@ class TestExecuteStepSeniorEscalation:
 # ---------------------------------------------------------------------------
 # Final senior review paths
 # ---------------------------------------------------------------------------
+
 
 class TestExecuteStepFinalSeniorReview:
     def test_senior_fails_coder_retry_junior_pass_senior_pass(
@@ -305,7 +343,6 @@ class TestExecuteStepFinalSeniorReview:
             patch("src.pipeline.subprocess.run", return_value=_make_proc(0)),
             patch("src.pipeline.run_junior_review", return_value=_pass_review()),
             patch("src.pipeline.run_senior_review", side_effect=_senior_side_effect),
-            patch("src.pipeline.get_diff", return_value="diff"),
         ):
             result = execute_step(forge_config)
 
@@ -329,7 +366,10 @@ class TestExecuteStepFinalSeniorReview:
             patch("src.pipeline.run_coder", return_value=_ok_aider()),
             patch("src.pipeline.subprocess.run", side_effect=_hook_side_effect),
             patch("src.pipeline.run_junior_review", return_value=_pass_review()),
-            patch("src.pipeline.run_senior_review", return_value=_fail_review("Security issue.")),
+            patch(
+                "src.pipeline.run_senior_review",
+                return_value=_fail_review("Security issue."),
+            ),
         ):
             result = execute_step(forge_config)
 
@@ -353,7 +393,10 @@ class TestExecuteStepFinalSeniorReview:
             patch("src.pipeline.run_coder", return_value=_ok_aider()),
             patch("src.pipeline.subprocess.run", return_value=_make_proc(0)),
             patch("src.pipeline.run_junior_review", side_effect=_junior_side_effect),
-            patch("src.pipeline.run_senior_review", return_value=_fail_review("Design issue.")),
+            patch(
+                "src.pipeline.run_senior_review",
+                return_value=_fail_review("Design issue."),
+            ),
         ):
             result = execute_step(forge_config)
 
@@ -393,12 +436,15 @@ class TestExecuteStepFinalSeniorReview:
 # finalize_step integration
 # ---------------------------------------------------------------------------
 
+
 class TestFinalizeStepIntegration:
     def test_full_finalize_marks_step_complete(
         self, forge_config: ForgeConfig, memory_path: Path
     ) -> None:
         """Commit + memory update marks step complete in ROADMAP.md via fallback path."""
-        step = Step("1.1", "Build the first thing", "- [ ] Step 1.1: Build the first thing")
+        step = Step(
+            "1.1", "Build the first thing", "- [ ] Step 1.1: Build the first thing"
+        )
         result = StepResult(
             status=StepStatus.SUCCESS,
             step=step,
@@ -408,10 +454,12 @@ class TestFinalizeStepIntegration:
 
         with (
             patch("src.pipeline.commit_changes", return_value=True),
-            patch("src.pipeline.get_diff", return_value=""),
             # Let update_memory run so its fallback checkbox logic kicks in,
             # but make the LLM call fail so the fallback path is exercised.
-            patch("src.memory.litellm.completion", side_effect=RuntimeError("API unavailable")),
+            patch(
+                "src.memory.litellm.completion",
+                side_effect=RuntimeError("API unavailable"),
+            ),
         ):
             finalize_step(forge_config, result)
 

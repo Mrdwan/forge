@@ -89,21 +89,30 @@ class ForgeBot:
         else:
             # Split into chunks
             for i in range(0, len(text), max_len):
-                await update.message.reply_text(text[i:i + max_len])
+                await update.message.reply_text(text[i : i + max_len])
 
-    async def cmd_next(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    async def cmd_next(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
         """Show the next step and ask for confirmation."""
         if self.state == BotState.EXECUTING:
-            await self._send(update, "⏳ Pipeline is already running. Wait for it to finish.")
+            await self._send(
+                update, "⏳ Pipeline is already running. Wait for it to finish."
+            )
             return
 
         if self.state == BotState.AWAITING_COMMIT:
-            await self._send(update, "📦 There's a completed step waiting for your commit. Reply 'commit' or 'stop'.")
+            await self._send(
+                update,
+                "📦 There's a completed step waiting for your commit. Reply 'commit' or 'stop'.",
+            )
             return
 
         step = find_next_step(self.cfg.memory_path, self.cfg.unchecked_pattern)
         if not step:
-            await self._send(update, "✅ All steps complete! Nothing left in the roadmap.")
+            await self._send(
+                update, "✅ All steps complete! Nothing left in the roadmap."
+            )
             return
 
         self._set_state(BotState.CONFIRMING)
@@ -114,10 +123,14 @@ class ForgeBot:
             f"Reply 'go' to start or 'skip' to skip this step.",
         )
 
-    async def cmd_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    async def cmd_status(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
         """Show current pipeline status."""
         step = find_next_step(self.cfg.memory_path, self.cfg.unchecked_pattern)
-        step_info = f"Step {step.step_id}: {step.description}" if step else "All steps complete"
+        step_info = (
+            f"Step {step.step_id}: {step.description}" if step else "All steps complete"
+        )
 
         await self._send(
             update,
@@ -128,22 +141,30 @@ class ForgeBot:
             f"Reviewer: {self.cfg.models.senior_reviewer}",
         )
 
-    async def cmd_skip(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    async def cmd_skip(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
         """Skip the current step."""
         if self.state in (BotState.CONFIRMING, BotState.FAILED):
             abandon_step(self.cfg)
             self._set_state(BotState.IDLE)
-            await self._send(update, "⏭️ Step skipped. Changes reset. Reply /next for the next step.")
+            await self._send(
+                update, "⏭️ Step skipped. Changes reset. Reply /next for the next step."
+            )
         else:
             await self._send(update, "Nothing to skip right now.")
 
-    async def cmd_reset(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    async def cmd_reset(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
         """Reset all uncommitted changes and return to idle."""
         abandon_step(self.cfg)
         self._set_state(BotState.IDLE)
         await self._send(update, "🔄 All uncommitted changes reset. Back to idle.")
 
-    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    async def handle_message(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
         """Handle free-text replies based on current state."""
         text = update.message.text.strip().lower()
 
@@ -188,10 +209,13 @@ class ForgeBot:
 
         try:
             result = await asyncio.to_thread(execute_step, self.cfg)
-        except Exception as e:
+        except Exception:
             logger.exception("Pipeline execution failed")
             self._set_state(BotState.FAILED)
-            await self._send(update, "💥 Pipeline crashed. Check forge.log for details.\n\nReply 'retry' or 'skip'.")
+            await self._send(
+                update,
+                "💥 Pipeline crashed. Check forge.log for details.\n\nReply 'retry' or 'skip'.",
+            )
             return
 
         self.current_result = result
@@ -238,9 +262,12 @@ class ForgeBot:
                 f"✅ Step {step.step_id} committed and memory bank updated.\n\n"
                 f"Reply /next for the next step.",
             )
-        except Exception as e:
+        except Exception:
             logger.exception("Finalization failed")
-            await self._send(update, "💥 Commit failed. Check forge.log for details.\n\nReply 'retry' or 'stop'.")
+            await self._send(
+                update,
+                "💥 Commit failed. Check forge.log for details.\n\nReply 'retry' or 'stop'.",
+            )
 
 
 def _truncate(text: str, max_len: int) -> str:
@@ -257,7 +284,9 @@ def run_bot(cfg: ForgeConfig) -> None:
     app = Application.builder().token(cfg.telegram.bot_token).build()
 
     # Only respond to messages from the configured chat ID and user ID
-    user_filter = filters.Chat(chat_id=int(cfg.telegram.chat_id)) & filters.User(user_id=int(cfg.telegram.chat_id))
+    user_filter = filters.Chat(chat_id=int(cfg.telegram.chat_id)) & filters.User(
+        user_id=int(cfg.telegram.chat_id)
+    )
 
     app.add_handler(CommandHandler("next", bot.cmd_next, filters=user_filter))
     app.add_handler(CommandHandler("status", bot.cmd_status, filters=user_filter))

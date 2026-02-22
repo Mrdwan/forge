@@ -83,11 +83,13 @@ class PipelineConfig:
 
 @dataclass
 class PreCommitConfig:
-    commands: list[str] = field(default_factory=lambda: [
-        "ruff check src/",
-        "mypy src/ --config-file mypy.ini",
-        "pytest tests/ -x -q --tb=short",
-    ])
+    commands: list[str] = field(
+        default_factory=lambda: [
+            "ruff check src/",
+            "mypy src/ --config-file mypy.ini",
+            "pytest tests/ -x -q --tb=short",
+        ]
+    )
 
 
 @dataclass
@@ -98,8 +100,8 @@ class ForgeConfig:
     telegram: TelegramConfig = field(default_factory=TelegramConfig)
     pipeline: PipelineConfig = field(default_factory=PipelineConfig)
     pre_commit: PreCommitConfig = field(default_factory=PreCommitConfig)
-    unchecked_pattern: str = r'^\s*-\s*\[ \]\s*\*{0,2}Step\s+(\d+\.\d+):?\*{0,2}\s*(.*)'
-    checked_pattern: str = r'^\s*-\s*\[x\]\s*\*{0,2}Step\s+(\d+\.\d+):?\*{0,2}\s*(.*)'
+    unchecked_pattern: str = r"^\s*-\s*\[ \]\s*\*{0,2}Step\s+(\d+\.\d+):?\*{0,2}\s*(.*)"
+    checked_pattern: str = r"^\s*-\s*\[x\]\s*\*{0,2}Step\s+(\d+\.\d+):?\*{0,2}\s*(.*)"
 
     @property
     def memory_path(self) -> Path:
@@ -109,6 +111,7 @@ class ForgeConfig:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _resolve_env(value: str) -> str:
     """Resolve ${ENV_VAR} references embedded in YAML string values."""
@@ -146,6 +149,7 @@ def _env_list(env_var: str, fallback: list[str]) -> list[str]:
 # Public loader
 # ---------------------------------------------------------------------------
 
+
 def load_config(config_path: str = "config.yaml") -> ForgeConfig:
     """Load config from YAML, then apply FORGE_* environment variable overrides.
 
@@ -167,10 +171,18 @@ def load_config(config_path: str = "config.yaml") -> ForgeConfig:
     m = raw.get("models", {})
     cfg.models = ModelsConfig(
         coder=_env_str("FORGE_MODEL_CODER", _resolve_env(m.get("coder", ""))),
-        coder_fallback=_env_str("FORGE_MODEL_CODER_FALLBACK", _resolve_env(m.get("coder_fallback", ""))),
-        junior_reviewer=_env_str("FORGE_MODEL_JUNIOR_REVIEWER", _resolve_env(m.get("junior_reviewer", ""))),
-        senior_reviewer=_env_str("FORGE_MODEL_SENIOR_REVIEWER", _resolve_env(m.get("senior_reviewer", ""))),
-        context_updater=_env_str("FORGE_MODEL_CONTEXT_UPDATER", _resolve_env(m.get("context_updater", ""))),
+        coder_fallback=_env_str(
+            "FORGE_MODEL_CODER_FALLBACK", _resolve_env(m.get("coder_fallback", ""))
+        ),
+        junior_reviewer=_env_str(
+            "FORGE_MODEL_JUNIOR_REVIEWER", _resolve_env(m.get("junior_reviewer", ""))
+        ),
+        senior_reviewer=_env_str(
+            "FORGE_MODEL_SENIOR_REVIEWER", _resolve_env(m.get("senior_reviewer", ""))
+        ),
+        context_updater=_env_str(
+            "FORGE_MODEL_CONTEXT_UPDATER", _resolve_env(m.get("context_updater", ""))
+        ),
     )
 
     # --- telegram ---
@@ -192,9 +204,7 @@ def load_config(config_path: str = "config.yaml") -> ForgeConfig:
         max_senior_rounds=_env_int(
             "FORGE_MAX_SENIOR_ROUNDS", p.get("max_senior_rounds", 2)
         ),
-        aider_timeout=_env_int(
-            "FORGE_AIDER_TIMEOUT", p.get("aider_timeout", 900)
-        ),
+        aider_timeout=_env_int("FORGE_AIDER_TIMEOUT", p.get("aider_timeout", 900)),
     )
 
     # --- pre_commit ---

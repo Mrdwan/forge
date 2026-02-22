@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import patch
 
 import pytest
 
 from src.cli import (
-    COMMANDS,
     _load_state,
     _save_state,
     _truncate,
@@ -29,6 +28,7 @@ from src.pipeline import StepResult, StepStatus
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_step() -> Step:
     return Step("2.1", "Build something", "- [ ] Step 2.1: Build something")
@@ -70,6 +70,7 @@ def cfg(forge_config: ForgeConfig) -> ForgeConfig:
 # notify_telegram
 # ---------------------------------------------------------------------------
 
+
 class TestNotifyTelegram:
     def test_calls_post_when_token_and_chat_set(self, cfg: ForgeConfig) -> None:
         cfg.telegram.bot_token = "tok123"
@@ -107,6 +108,7 @@ class TestNotifyTelegram:
 # State helpers
 # ---------------------------------------------------------------------------
 
+
 class TestStateHelpers:
     def test_load_returns_idle_when_no_file(self, tmp_path: Path) -> None:
         with patch("src.cli.STATE_FILE", str(tmp_path / "missing.json")):
@@ -136,8 +138,11 @@ class TestStateHelpers:
 # cmd_status
 # ---------------------------------------------------------------------------
 
+
 class TestCmdStatus:
-    def test_prints_state_and_step(self, cfg: ForgeConfig, capsys: pytest.CaptureFixture) -> None:
+    def test_prints_state_and_step(
+        self, cfg: ForgeConfig, capsys: pytest.CaptureFixture
+    ) -> None:
         with (
             patch("src.cli._load_state", return_value=BotState.IDLE),
             patch("src.cli.find_next_step", return_value=_make_step()),
@@ -147,7 +152,9 @@ class TestCmdStatus:
         assert "idle" in out
         assert "2.1" in out
 
-    def test_prints_all_complete_when_no_steps(self, cfg: ForgeConfig, capsys: pytest.CaptureFixture) -> None:
+    def test_prints_all_complete_when_no_steps(
+        self, cfg: ForgeConfig, capsys: pytest.CaptureFixture
+    ) -> None:
         with (
             patch("src.cli._load_state", return_value=BotState.IDLE),
             patch("src.cli.find_next_step", return_value=None),
@@ -161,8 +168,11 @@ class TestCmdStatus:
 # cmd_skip
 # ---------------------------------------------------------------------------
 
+
 class TestCmdSkip:
-    def test_skips_in_confirming_state(self, cfg: ForgeConfig, capsys: pytest.CaptureFixture) -> None:
+    def test_skips_in_confirming_state(
+        self, cfg: ForgeConfig, capsys: pytest.CaptureFixture
+    ) -> None:
         with (
             patch("src.cli._load_state", return_value=BotState.CONFIRMING),
             patch("src.cli._save_state") as mock_save,
@@ -184,7 +194,9 @@ class TestCmdSkip:
             cmd_skip(cfg)
         mock_abandon.assert_called_once()
 
-    def test_does_nothing_in_idle(self, cfg: ForgeConfig, capsys: pytest.CaptureFixture) -> None:
+    def test_does_nothing_in_idle(
+        self, cfg: ForgeConfig, capsys: pytest.CaptureFixture
+    ) -> None:
         with (
             patch("src.cli._load_state", return_value=BotState.IDLE),
             patch("src.cli.abandon_step") as mock_abandon,
@@ -207,6 +219,7 @@ class TestCmdSkip:
 # ---------------------------------------------------------------------------
 # cmd_reset
 # ---------------------------------------------------------------------------
+
 
 class TestCmdReset:
     def test_calls_abandon_and_saves_idle(self, cfg: ForgeConfig) -> None:
@@ -233,14 +246,19 @@ class TestCmdReset:
 # cmd_next
 # ---------------------------------------------------------------------------
 
+
 class TestCmdNext:
-    def test_prints_already_running_when_executing(self, cfg: ForgeConfig, capsys: pytest.CaptureFixture) -> None:
+    def test_prints_already_running_when_executing(
+        self, cfg: ForgeConfig, capsys: pytest.CaptureFixture
+    ) -> None:
         with patch("src.cli._load_state", return_value=BotState.EXECUTING):
             cmd_next(cfg)
         out = capsys.readouterr().out
         assert "running" in out.lower() or "executing" in out.lower()
 
-    def test_no_steps_left(self, cfg: ForgeConfig, capsys: pytest.CaptureFixture) -> None:
+    def test_no_steps_left(
+        self, cfg: ForgeConfig, capsys: pytest.CaptureFixture
+    ) -> None:
         with (
             patch("src.cli._load_state", return_value=BotState.IDLE),
             patch("src.cli.find_next_step", return_value=None),
@@ -250,7 +268,9 @@ class TestCmdNext:
         out = capsys.readouterr().out
         assert "complete" in out.lower()
 
-    def test_shows_step_and_prompts_go(self, cfg: ForgeConfig, capsys: pytest.CaptureFixture) -> None:
+    def test_shows_step_and_prompts_go(
+        self, cfg: ForgeConfig, capsys: pytest.CaptureFixture
+    ) -> None:
         """User types 'go' → pipeline runs."""
         with (
             patch("src.cli._load_state", return_value=BotState.IDLE),
@@ -287,7 +307,9 @@ class TestCmdNext:
             cmd_next(cfg)
         mock_run.assert_called_once()
 
-    def test_awaiting_commit_redirects_to_prompt_commit(self, cfg: ForgeConfig, capsys: pytest.CaptureFixture) -> None:
+    def test_awaiting_commit_redirects_to_prompt_commit(
+        self, cfg: ForgeConfig, capsys: pytest.CaptureFixture
+    ) -> None:
         with (
             patch("src.cli._load_state", return_value=BotState.AWAITING_COMMIT),
             patch("src.cli._prompt_commit") as mock_commit,
@@ -300,6 +322,7 @@ class TestCmdNext:
 # _run_pipeline (via cmd_next integration)
 # ---------------------------------------------------------------------------
 
+
 class TestRunPipeline:
     def test_success_sets_awaiting_commit(self, cfg: ForgeConfig) -> None:
         with (
@@ -310,6 +333,7 @@ class TestRunPipeline:
             patch("src.cli.notify_telegram"),
         ):
             from src.cli import _run_pipeline
+
             _run_pipeline(cfg, notify=True)
         # Should transition to AWAITING_COMMIT
         states = [c.args[0] for c in mock_save.call_args_list]
@@ -324,6 +348,7 @@ class TestRunPipeline:
             patch("src.cli.notify_telegram"),
         ):
             from src.cli import _run_pipeline
+
             _run_pipeline(cfg, notify=True)
         states = [c.args[0] for c in mock_save.call_args_list]
         assert BotState.FAILED in states
@@ -336,6 +361,7 @@ class TestRunPipeline:
             patch("src.cli.notify_telegram"),
         ):
             from src.cli import _run_pipeline
+
             _run_pipeline(cfg, notify=True)
         states = [c.args[0] for c in mock_save.call_args_list]
         assert BotState.FAILED in states
@@ -350,6 +376,7 @@ class TestRunPipeline:
             patch("src.cli.notify_telegram") as mock_notify,
         ):
             from src.cli import _run_pipeline
+
             _run_pipeline(cfg, notify=True)
         mock_notify.assert_called()
 
@@ -361,6 +388,7 @@ class TestRunPipeline:
             patch("src.cli.notify_telegram") as mock_notify,
         ):
             from src.cli import _run_pipeline
+
             _run_pipeline(cfg, notify=False)
         mock_notify.assert_not_called()
 
@@ -368,6 +396,7 @@ class TestRunPipeline:
 # ---------------------------------------------------------------------------
 # run_cli dispatch
 # ---------------------------------------------------------------------------
+
 
 class TestRunCli:
     def test_dispatches_status(self, cfg: ForgeConfig) -> None:
@@ -421,6 +450,7 @@ class TestRunCli:
 # _truncate
 # ---------------------------------------------------------------------------
 
+
 class TestTruncate:
     def test_short_unchanged(self) -> None:
         assert _truncate("hi", 100) == "hi"
@@ -430,9 +460,11 @@ class TestTruncate:
         assert "truncated" in result
         assert result.startswith("x" * 100)
 
+
 # ---------------------------------------------------------------------------
 # _prompt_commit and _prompt_after_failure
 # ---------------------------------------------------------------------------
+
 
 class TestPromptCommit:
     def test_commit_success(self, cfg: ForgeConfig) -> None:
@@ -443,23 +475,30 @@ class TestPromptCommit:
             patch("src.cli.notify_telegram"),
         ):
             from src.cli import _prompt_commit
+
             _prompt_commit(cfg, _success_result(), notify=True)
             mock_finalize.assert_called_once()
             mock_save.assert_called_with(BotState.IDLE)
 
-    def test_commit_no_result(self, cfg: ForgeConfig, capsys: pytest.CaptureFixture) -> None:
+    def test_commit_no_result(
+        self, cfg: ForgeConfig, capsys: pytest.CaptureFixture
+    ) -> None:
         with patch("src.cli._prompt", return_value="commit"):
             from src.cli import _prompt_commit
+
             _prompt_commit(cfg, None, notify=False)
             assert "No pending result" in capsys.readouterr().out
 
-    def test_commit_exception(self, cfg: ForgeConfig, capsys: pytest.CaptureFixture) -> None:
+    def test_commit_exception(
+        self, cfg: ForgeConfig, capsys: pytest.CaptureFixture
+    ) -> None:
         with (
             patch("src.cli._prompt", return_value="commit"),
             patch("src.cli.finalize_step", side_effect=ValueError("git error")),
             patch("src.cli.notify_telegram"),
         ):
             from src.cli import _prompt_commit
+
             _prompt_commit(cfg, _success_result(), notify=True)
             assert "Commit failed" in capsys.readouterr().out
 
@@ -469,6 +508,7 @@ class TestPromptCommit:
             patch("src.cli.cmd_reset") as mock_reset,
         ):
             from src.cli import _prompt_commit
+
             _prompt_commit(cfg, _success_result(), notify=True)
             mock_reset.assert_called_once_with(cfg, notify=True)
 
@@ -479,6 +519,7 @@ class TestPromptCommit:
             patch("src.cli.cmd_reset") as mock_reset,
         ):
             from src.cli import _prompt_commit
+
             _prompt_commit(cfg, _success_result(), notify=False)
             mock_reset.assert_called_once_with(cfg, notify=False)
 
@@ -490,6 +531,7 @@ class TestPromptAfterFailure:
             patch("src.cli._run_pipeline") as mock_run,
         ):
             from src.cli import _prompt_after_failure
+
             _prompt_after_failure(cfg, _fail_result(), notify=True)
             mock_run.assert_called_once_with(cfg, notify=True)
 
@@ -499,6 +541,7 @@ class TestPromptAfterFailure:
             patch("src.cli.cmd_skip") as mock_skip,
         ):
             from src.cli import _prompt_after_failure
+
             _prompt_after_failure(cfg, _fail_result(), notify=True)
             mock_skip.assert_called_once_with(cfg, notify=True)
 
@@ -508,6 +551,7 @@ class TestPromptAfterFailure:
             patch("src.cli.cmd_reset") as mock_reset,
         ):
             from src.cli import _prompt_after_failure
+
             _prompt_after_failure(cfg, _fail_result(), notify=True)
             mock_reset.assert_called_once_with(cfg, notify=True)
 
@@ -518,12 +562,15 @@ class TestPromptAfterFailure:
             patch("src.cli.cmd_skip") as mock_skip,
         ):
             from src.cli import _prompt_after_failure
+
             _prompt_after_failure(cfg, _fail_result(), notify=False)
             mock_skip.assert_called_once_with(cfg, notify=False)
+
 
 # ---------------------------------------------------------------------------
 # Telegram notification branches and remaining edge cases
 # ---------------------------------------------------------------------------
+
 
 class TestCoverageGaps:
     def test_cmd_next_no_steps_notifies_telegram(self, cfg: ForgeConfig) -> None:
@@ -543,12 +590,14 @@ class TestCoverageGaps:
             patch("src.cli.notify_telegram") as mock_notify,
         ):
             from src.cli import _run_pipeline
+
             _run_pipeline(cfg, notify=True)
             # Called once on start, once on crash
             assert mock_notify.call_count == 2
 
     def test_handle_result_success_notifies_telegram(self, cfg: ForgeConfig) -> None:
         from src.cli import _handle_result
+
         with (
             patch("src.cli._save_state"),
             patch("src.cli._prompt_commit"),
@@ -559,6 +608,7 @@ class TestCoverageGaps:
 
     def test_handle_result_failure_notifies_telegram(self, cfg: ForgeConfig) -> None:
         from src.cli import _handle_result
+
         with (
             patch("src.cli._save_state"),
             patch("src.cli._prompt_after_failure"),
@@ -569,6 +619,7 @@ class TestCoverageGaps:
 
     def test_prompt_commit_success_notifies_telegram(self, cfg: ForgeConfig) -> None:
         from src.cli import _prompt_commit
+
         with (
             patch("src.cli._prompt", return_value="commit"),
             patch("src.cli.finalize_step"),
@@ -604,6 +655,7 @@ class TestCoverageGaps:
     def test_run_pipeline_exception_no_notify(self, cfg: ForgeConfig) -> None:
         """Line 197->199: _run_pipeline crash, notify=False."""
         from src.cli import _run_pipeline
+
         with (
             patch("src.cli._save_state"),
             patch("src.cli.find_next_step", return_value=_make_step()),
@@ -616,6 +668,7 @@ class TestCoverageGaps:
     def test_handle_result_success_no_notify(self, cfg: ForgeConfig) -> None:
         """Line 219->226: success path, notify=False."""
         from src.cli import _handle_result
+
         with (
             patch("src.cli._save_state"),
             patch("src.cli._prompt_commit"),
@@ -627,6 +680,7 @@ class TestCoverageGaps:
     def test_handle_result_failure_no_notify(self, cfg: ForgeConfig) -> None:
         """Line 233->240: failure path, notify=False."""
         from src.cli import _handle_result
+
         with (
             patch("src.cli._save_state"),
             patch("src.cli._prompt_after_failure"),
@@ -638,6 +692,7 @@ class TestCoverageGaps:
     def test_prompt_commit_success_no_notify(self, cfg: ForgeConfig) -> None:
         """Lines 252->254, 263->271: commit success, notify=False."""
         from src.cli import _prompt_commit
+
         with (
             patch("src.cli._prompt", return_value="commit"),
             patch("src.cli.finalize_step"),
@@ -650,6 +705,7 @@ class TestCoverageGaps:
     def test_prompt_commit_exception_no_notify(self, cfg: ForgeConfig) -> None:
         """Line 269->271: commit exception, notify=False."""
         from src.cli import _prompt_commit
+
         with (
             patch("src.cli._prompt", return_value="commit"),
             patch("src.cli.finalize_step", side_effect=ValueError("git error")),
@@ -663,8 +719,8 @@ class TestCoverageGaps:
     def test_prompt_calls_input(self) -> None:
         """Line 308: exercise the real _prompt function body."""
         from src.cli import _prompt
+
         with patch("builtins.input", return_value="hello") as mock_input:
             result = _prompt("msg")
             mock_input.assert_called_once_with("msg")
             assert result == "hello"
-

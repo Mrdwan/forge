@@ -9,7 +9,6 @@ and a sample ROADMAP.md that Forge knows how to parse.
 """
 
 import argparse
-import os
 import subprocess
 from pathlib import Path
 
@@ -49,7 +48,7 @@ Describe how data moves through the system.
 Document key data structures and database schemas here.
 """)
 
-    (memory / "ROADMAP.md").write_text(f"""# Roadmap
+    (memory / "ROADMAP.md").write_text("""# Roadmap
 
 ## Phase 1: Foundation
 - [ ] Step 1.1: Set up project skeleton with package structure, pyproject.toml, and dev tooling
@@ -143,7 +142,9 @@ disallow_untyped_defs = False
 
     # --- Test placeholder ---
     (root / "tests" / "__init__.py").write_text("")
-    (root / "tests" / "test_placeholder.py").write_text(f"""\"\"\"Placeholder test to verify the test suite runs.\"\"\"
+    (
+        root / "tests" / "test_placeholder.py"
+    ).write_text(f"""\"\"\"Placeholder test to verify the test suite runs.\"\"\"
 
 
 def test_import() -> None:
@@ -172,26 +173,32 @@ venv/
 
     # --- Initial commit ---
     subprocess.run(["git", "add", "-A"], cwd=root, check=True)
-    subprocess.run(["git", "commit", "-q", "-m", "init: project skeleton"], cwd=root, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "init: project skeleton"], cwd=root, check=True
+    )
 
     return root
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate a Forge-compatible project skeleton")
+    parser = argparse.ArgumentParser(
+        description="Generate a Forge-compatible project skeleton"
+    )
     parser.add_argument("name", help="Project name (e.g., wealth-ops)")
-    parser.add_argument("--path", default=".", help="Where to create the project (default: current dir)")
+    parser.add_argument(
+        "--path", default=".", help="Where to create the project (default: current dir)"
+    )
     args = parser.parse_args()
 
     project_path = create_project(args.name, Path(args.path))
     print(f"Created {project_path}")
     print()
     print("Next steps:")
-    print(f"  1. Edit memory/ROADMAP.md with your actual steps")
-    print(f"  2. Edit memory/ARCHITECTURE.md with your system description")
-    print(f"  3. Add any known design decisions to memory/DECISIONS.md")
+    print("  1. Edit memory/ROADMAP.md with your actual steps")
+    print("  2. Edit memory/ARCHITECTURE.md with your system description")
+    print("  3. Add any known design decisions to memory/DECISIONS.md")
     print(f"  4. Point Forge's config.yaml at {project_path}")
-    print(f"  5. Message /next on Telegram")
+    print("  5. Message /next on Telegram")
 
 
 if __name__ == "__main__":  # pragma: no cover

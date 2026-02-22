@@ -127,7 +127,9 @@ def run_junior_review(
     prompt = JUNIOR_REVIEW_PROMPT.format(
         step_id=step_id,
         description=description,
-        changed_files="\n".join(f"- {f}" for f in changed) if changed else "No files detected",
+        changed_files="\n".join(f"- {f}" for f in changed)
+        if changed
+        else "No files detected",
         diff=diff,
     )
 
@@ -157,7 +159,9 @@ def run_senior_review(
     prompt = SENIOR_REVIEW_PROMPT.format(
         step_id=step_id,
         description=description,
-        changed_files="\n".join(f"- {f}" for f in changed) if changed else "No files detected",
+        changed_files="\n".join(f"- {f}" for f in changed)
+        if changed
+        else "No files detected",
         diff=diff,
     )
 
@@ -235,7 +239,10 @@ def extract_issues(review_output: str) -> str:
                 issues.append(line.strip())
             elif line.strip() == "" and issues:
                 continue
-            elif any(keyword in line.upper() for keyword in ["SUMMARY", "SUGGESTIONS", "VERDICT"]):
+            elif any(
+                keyword in line.upper()
+                for keyword in ["SUMMARY", "SUGGESTIONS", "VERDICT"]
+            ):
                 break
 
     return "\n".join(issues) if issues else review_output[:500]

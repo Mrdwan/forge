@@ -3,7 +3,6 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from src.memory import (
     Step,
@@ -14,13 +13,14 @@ from src.memory import (
     update_memory,
 )
 
-UNCHECKED = r'^\s*-\s*\[ \]\s*\*{0,2}Step\s+(\d+\.\d+):?\*{0,2}\s*(.*)'
-CHECKED = r'^\s*-\s*\[x\]\s*\*{0,2}Step\s+(\d+\.\d+):?\*{0,2}\s*(.*)'
+UNCHECKED = r"^\s*-\s*\[ \]\s*\*{0,2}Step\s+(\d+\.\d+):?\*{0,2}\s*(.*)"
+CHECKED = r"^\s*-\s*\[x\]\s*\*{0,2}Step\s+(\d+\.\d+):?\*{0,2}\s*(.*)"
 
 
 # ---------------------------------------------------------------------------
 # ensure_memory_bank
 # ---------------------------------------------------------------------------
+
 
 class TestEnsureMemoryBank:
     def test_creates_directory_and_all_five_files(self, tmp_path: Path) -> None:
@@ -59,6 +59,7 @@ class TestEnsureMemoryBank:
 # find_next_step
 # ---------------------------------------------------------------------------
 
+
 class TestFindNextStep:
     def test_finds_first_unchecked_step(self, memory_path: Path) -> None:
         step = find_next_step(memory_path, UNCHECKED)
@@ -80,9 +81,7 @@ class TestFindNextStep:
     def test_returns_none_when_all_checked(self, memory_path: Path) -> None:
         roadmap = memory_path / "ROADMAP.md"
         roadmap.write_text(
-            "# Roadmap\n\n"
-            "- [x] Step 1.1: Done\n"
-            "- [x] Step 1.2: Also done\n"
+            "# Roadmap\n\n- [x] Step 1.1: Done\n- [x] Step 1.2: Also done\n"
         )
         step = find_next_step(memory_path, UNCHECKED)
         assert step is None
@@ -107,15 +106,15 @@ class TestFindNextStep:
         assert step.description == "Extra spaces here"
 
 
-
-
-
 # ---------------------------------------------------------------------------
 # get_coder_context
 # ---------------------------------------------------------------------------
 
+
 class TestGetCoderContext:
-    def test_includes_memory_file_contents(self, memory_path: Path, sample_step: Step) -> None:
+    def test_includes_memory_file_contents(
+        self, memory_path: Path, sample_step: Step
+    ) -> None:
         context = get_coder_context(memory_path, sample_step)
         assert "System description" in context
         assert "Some decisions" in context
@@ -127,7 +126,9 @@ class TestGetCoderContext:
         assert "Build the first thing" in context
         assert "pytest tests" in context.lower() or "tests" in context
 
-    def test_handles_missing_memory_files(self, tmp_path: Path, sample_step: Step) -> None:
+    def test_handles_missing_memory_files(
+        self, tmp_path: Path, sample_step: Step
+    ) -> None:
         """Should not crash when some memory files don't exist."""
         mem = tmp_path / "empty_memory"
         mem.mkdir()
@@ -135,14 +136,20 @@ class TestGetCoderContext:
         # Still has the task section
         assert "Step 1.1" in context
 
-    def test_includes_plan_file_if_exists(self, memory_path: Path, sample_step: Step) -> None:
+    def test_includes_plan_file_if_exists(
+        self, memory_path: Path, sample_step: Step
+    ) -> None:
         plan_dir = memory_path.parent / "docs" / "plans"
         plan_dir.mkdir(parents=True)
-        (plan_dir / "plan_1.1_my_plan.md").write_text("# Detailed Plan\n\nDo it this way.\n")
+        (plan_dir / "plan_1.1_my_plan.md").write_text(
+            "# Detailed Plan\n\nDo it this way.\n"
+        )
         context = get_coder_context(memory_path, sample_step)
         assert "Do it this way" in context
 
-    def test_no_crash_when_plan_dir_missing(self, memory_path: Path, sample_step: Step) -> None:
+    def test_no_crash_when_plan_dir_missing(
+        self, memory_path: Path, sample_step: Step
+    ) -> None:
         context = get_coder_context(memory_path, sample_step)
         assert "Step 1.1" in context
 
@@ -150,6 +157,7 @@ class TestGetCoderContext:
 # ---------------------------------------------------------------------------
 # get_memory_file_paths
 # ---------------------------------------------------------------------------
+
 
 class TestGetMemoryFilePaths:
     def test_returns_paths_for_existing_files(self, memory_path: Path) -> None:
@@ -172,6 +180,7 @@ class TestGetMemoryFilePaths:
 # update_memory
 # ---------------------------------------------------------------------------
 
+
 class TestUpdateMemory:
     _SAMPLE_RESPONSE = (
         "===ROADMAP===\n"
@@ -191,27 +200,48 @@ class TestUpdateMemory:
         resp.choices = [choice]
         return resp
 
-    def test_happy_path_writes_all_sections(self, memory_path: Path, sample_step: Step) -> None:
-        with patch("src.memory.litellm.completion", return_value=self._mock_response(self._SAMPLE_RESPONSE)):
-            update_memory(memory_path, sample_step, "diff content", "senior review text", "test/model")
+    def test_happy_path_writes_all_sections(
+        self, memory_path: Path, sample_step: Step
+    ) -> None:
+        with patch(
+            "src.memory.litellm.completion",
+            return_value=self._mock_response(self._SAMPLE_RESPONSE),
+        ):
+            update_memory(
+                memory_path,
+                sample_step,
+                "diff content",
+                "senior review text",
+                "test/model",
+            )
 
         assert "Built the thing." in (memory_path / "ROADMAP.md").read_text()
         assert "Updated arch." in (memory_path / "ARCHITECTURE.md").read_text()
         assert "New decision." in (memory_path / "DECISIONS.md").read_text()
 
-    def test_malformed_response_section_skipping(self, memory_path: Path, sample_step: Step) -> None:
+    def test_malformed_response_section_skipping(
+        self, memory_path: Path, sample_step: Step
+    ) -> None:
         """If response has only ROADMAP, other files should be unchanged."""
         partial = "===ROADMAP===\n# Roadmap\n\n- [x] Step 1.1: done\n> Done.\n"
         original_arch = (memory_path / "ARCHITECTURE.md").read_text()
-        with patch("src.memory.litellm.completion", return_value=self._mock_response(partial)):
+        with patch(
+            "src.memory.litellm.completion", return_value=self._mock_response(partial)
+        ):
             update_memory(memory_path, sample_step, "diff", "review", "test/model")
 
         assert "Done." in (memory_path / "ROADMAP.md").read_text()
         assert (memory_path / "ARCHITECTURE.md").read_text() == original_arch
 
-    def test_exception_triggers_fallback_append(self, memory_path: Path, sample_step: Step) -> None:
-        with patch("src.memory.litellm.completion", side_effect=RuntimeError("API down")):
-            update_memory(memory_path, sample_step, "diff content", "review", "test/model")
+    def test_exception_triggers_fallback_append(
+        self, memory_path: Path, sample_step: Step
+    ) -> None:
+        with patch(
+            "src.memory.litellm.completion", side_effect=RuntimeError("API down")
+        ):
+            update_memory(
+                memory_path, sample_step, "diff content", "review", "test/model"
+            )
 
         new_roadmap = (memory_path / "ROADMAP.md").read_text()
         # Fallback checked off only the completed step
@@ -220,10 +250,14 @@ class TestUpdateMemory:
         # Other unchecked steps are unaffected
         assert "- [ ] Step 1.2" in new_roadmap
 
-    def test_exception_when_roadmap_missing(self, memory_path: Path, sample_step: Step) -> None:
+    def test_exception_when_roadmap_missing(
+        self, memory_path: Path, sample_step: Step
+    ) -> None:
         """Should not crash if ROADMAP.md is missing when an exception occurs."""
         (memory_path / "ROADMAP.md").unlink()
-        with patch("src.memory.litellm.completion", side_effect=RuntimeError("API down")):
+        with patch(
+            "src.memory.litellm.completion", side_effect=RuntimeError("API down")
+        ):
             update_memory(memory_path, sample_step, "diff", "review", "test/model")
-        
+
         assert not (memory_path / "ROADMAP.md").exists()
