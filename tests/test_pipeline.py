@@ -98,11 +98,9 @@ class TestFinalizeStep:
             patch("src.pipeline.commit_changes", return_value=True),
             patch("src.pipeline.get_diff", return_value="diff text"),
             patch("src.pipeline.update_memory") as mock_mem,
-            patch("src.pipeline.mark_step_complete") as mock_mark,
         ):
             finalize_step(forge_config, result)
         mock_mem.assert_called_once()
-        mock_mark.assert_called_once()
 
     def test_skips_when_not_success(self, forge_config: ForgeConfig, sample_step: Step) -> None:
         result = StepResult(status=StepStatus.FAILED, step=sample_step, summary="fail")

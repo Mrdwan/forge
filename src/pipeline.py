@@ -29,7 +29,6 @@ from src.memory import (
     find_next_step,
     get_coder_context,
     get_memory_file_paths,
-    mark_step_complete,
     update_memory,
 )
 from src.reviewers import (
@@ -383,8 +382,6 @@ def finalize_step(cfg: ForgeConfig, result: StepResult) -> None:
         logger.error("Commit failed during finalization")
         return
 
-    # Update memory bank
-    diff_summary = get_diff(cfg.project_path)  # Will be empty after commit, use cached
     update_memory(
         memory_path=cfg.memory_path,
         step=step,
@@ -392,9 +389,6 @@ def finalize_step(cfg: ForgeConfig, result: StepResult) -> None:
         senior_review=result.details,
         model=cfg.models.context_updater,
     )
-
-    # Mark step complete
-    mark_step_complete(cfg.memory_path, step)
 
     logger.info(f"Step {step.step_id} finalized and committed")
 

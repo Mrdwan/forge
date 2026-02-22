@@ -42,10 +42,8 @@ Forge maintains five files in your project's `memory/` directory:
 | File | Purpose | Who reads it |
 |------|---------|-------------|
 | `ARCHITECTURE.md` | Current system design, components, schemas | Coder |
-| `ROADMAP.md` | Step checklist | Pipeline (to find next step) |
+| `ROADMAP.md` | Step checklist (includes change notes) | Coder + Pipeline |
 | `DECISIONS.md` | Why things are the way they are | Coder |
-| `PROGRESS.md` | Running log of completed work | Coder |
-| `CHANGELOG.md` | Human-readable summary | You only |
 
 After each successful step, a cheap model (DeepSeek) updates the relevant memory files based on what changed.
 
@@ -93,8 +91,10 @@ Example ROADMAP.md:
 # Roadmap
 
 ## Phase 1: Core Infrastructure
-- [ ] Step 1.1: Set up project skeleton with src/ and tests/ directories
-- [ ] Step 1.2: Build data ingestion pipeline for Tiingo API
+- [x] Step 1.1: Set up project skeleton with src/ and tests/ directories
+  > Added src/ layout, pyproject.toml, ruff + mypy hooks
+- [x] Step 1.2: Build data ingestion pipeline for Tiingo API
+  > Switched from httpx to aiohttp for streaming support
 - [ ] Step 1.3: Implement database schema and storage layer
 
 ## Phase 2: Analysis

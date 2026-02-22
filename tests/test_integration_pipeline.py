@@ -397,7 +397,7 @@ class TestFinalizeStepIntegration:
     def test_full_finalize_marks_step_complete(
         self, forge_config: ForgeConfig, memory_path: Path
     ) -> None:
-        """Commit + memory update + mark step complete — verify ROADMAP.md is updated."""
+        """Commit + memory update marks step complete in ROADMAP.md via fallback path."""
         step = Step("1.1", "Build the first thing", "- [ ] Step 1.1: Build the first thing")
         result = StepResult(
             status=StepStatus.SUCCESS,
@@ -409,7 +409,9 @@ class TestFinalizeStepIntegration:
         with (
             patch("src.pipeline.commit_changes", return_value=True),
             patch("src.pipeline.get_diff", return_value=""),
-            patch("src.pipeline.update_memory"),
+            # Let update_memory run so its fallback checkbox logic kicks in,
+            # but make the LLM call fail so the fallback path is exercised.
+            patch("src.memory.litellm.completion", side_effect=RuntimeError("API unavailable")),
         ):
             finalize_step(forge_config, result)
 

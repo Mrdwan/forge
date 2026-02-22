@@ -11,7 +11,6 @@ from src.memory import (
     find_next_step,
     get_coder_context,
     get_memory_file_paths,
-    mark_step_complete,
     update_memory,
 )
 
@@ -28,7 +27,7 @@ class TestEnsureMemoryBank:
         mem = tmp_path / "memory"
         ensure_memory_bank(mem)
         assert mem.is_dir()
-        for f in ["ARCHITECTURE.md", "ROADMAP.md", "DECISIONS.md", "PROGRESS.md", "CHANGELOG.md"]:
+        for f in ["ARCHITECTURE.md", "ROADMAP.md", "DECISIONS.md"]:
             assert (mem / f).exists(), f"{f} not created"
 
     def test_does_not_overwrite_existing_files(self, tmp_path: Path) -> None:
@@ -108,32 +107,7 @@ class TestFindNextStep:
         assert step.description == "Extra spaces here"
 
 
-# ---------------------------------------------------------------------------
-# mark_step_complete
-# ---------------------------------------------------------------------------
 
-class TestMarkStepComplete:
-    def test_checks_off_step(self, memory_path: Path) -> None:
-        step = Step(
-            step_id="1.1",
-            description="Build the first thing",
-            raw_line="- [ ] Step 1.1: Build the first thing",
-        )
-        mark_step_complete(memory_path, step)
-        content = (memory_path / "ROADMAP.md").read_text()
-        assert "- [x] Step 1.1: Build the first thing" in content
-        assert "- [ ] Step 1.1" not in content
-
-    def test_only_first_occurrence_replaced(self, memory_path: Path) -> None:
-        roadmap = memory_path / "ROADMAP.md"
-        roadmap.write_text(
-            "- [ ] Step 1.1: Build the first thing\n"
-            "- [ ] Step 1.1: Build the first thing\n"
-        )
-        step = Step("1.1", "Build the first thing", "- [ ] Step 1.1: Build the first thing")
-        mark_step_complete(memory_path, step)
-        content = roadmap.read_text()
-        assert content.count("- [x]") == 1
 
 
 # ---------------------------------------------------------------------------
@@ -145,7 +119,7 @@ class TestGetCoderContext:
         context = get_coder_context(memory_path, sample_step)
         assert "System description" in context
         assert "Some decisions" in context
-        assert "Initial state" in context
+        assert "Build the first thing" in context  # from ROADMAP.md
 
     def test_includes_task_prompt(self, memory_path: Path, sample_step: Step) -> None:
         context = get_coder_context(memory_path, sample_step)
@@ -182,9 +156,8 @@ class TestGetMemoryFilePaths:
         paths = get_memory_file_paths(memory_path)
         assert "memory/ARCHITECTURE.md" in paths
         assert "memory/DECISIONS.md" in paths
-        assert "memory/PROGRESS.md" in paths
-        # CHANGELOG and ROADMAP are not in the list
-        assert "memory/CHANGELOG.md" not in paths
+        # ROADMAP is not in the list for a coder to write back to, memory handler will pass it automatically
+        assert "memory/ROADMAP.md" not in paths
 
     def test_missing_files_excluded(self, tmp_path: Path) -> None:
         mem = tmp_path / "memory"
@@ -201,8 +174,8 @@ class TestGetMemoryFilePaths:
 
 class TestUpdateMemory:
     _SAMPLE_RESPONSE = (
-        "===PROGRESS===\n"
-        "# Progress\n\n### Step 1.1\nBuilt the thing.\n"
+        "===ROADMAP===\n"
+        "# Roadmap\n\n- [x] Step 1.1: Build the thing\n> Built the thing.\n"
         "===ARCHITECTURE===\n"
         "# Architecture\n\nUpdated arch.\n"
         "===DECISIONS===\n"
@@ -222,45 +195,35 @@ class TestUpdateMemory:
         with patch("src.memory.litellm.completion", return_value=self._mock_response(self._SAMPLE_RESPONSE)):
             update_memory(memory_path, sample_step, "diff content", "senior review text", "test/model")
 
-        assert "Built the thing." in (memory_path / "PROGRESS.md").read_text()
+        assert "Built the thing." in (memory_path / "ROADMAP.md").read_text()
         assert "Updated arch." in (memory_path / "ARCHITECTURE.md").read_text()
         assert "New decision." in (memory_path / "DECISIONS.md").read_text()
-        assert "Step 1.1" in (memory_path / "CHANGELOG.md").read_text()
-
-    def test_changelog_always_appended(self, memory_path: Path, sample_step: Step) -> None:
-        with patch("src.memory.litellm.completion", return_value=self._mock_response(self._SAMPLE_RESPONSE)):
-            update_memory(memory_path, sample_step, "my diff", "senior review text", "test/model")
-
-        changelog = (memory_path / "CHANGELOG.md").read_text()
-        assert "Step 1.1" in changelog
-        assert "Build the first thing" in changelog
 
     def test_malformed_response_section_skipping(self, memory_path: Path, sample_step: Step) -> None:
-        """If response has only PROGRESS, other files should be unchanged."""
-        partial = "===PROGRESS===\n# Progress\n\n### Step 1.1\nDone.\n"
+        """If response has only ROADMAP, other files should be unchanged."""
+        partial = "===ROADMAP===\n# Roadmap\n\n- [x] Step 1.1: done\n> Done.\n"
         original_arch = (memory_path / "ARCHITECTURE.md").read_text()
         with patch("src.memory.litellm.completion", return_value=self._mock_response(partial)):
             update_memory(memory_path, sample_step, "diff", "review", "test/model")
 
-        assert "Done." in (memory_path / "PROGRESS.md").read_text()
+        assert "Done." in (memory_path / "ROADMAP.md").read_text()
         assert (memory_path / "ARCHITECTURE.md").read_text() == original_arch
 
     def test_exception_triggers_fallback_append(self, memory_path: Path, sample_step: Step) -> None:
-        original_progress = (memory_path / "PROGRESS.md").read_text()
         with patch("src.memory.litellm.completion", side_effect=RuntimeError("API down")):
             update_memory(memory_path, sample_step, "diff content", "review", "test/model")
 
-        new_progress = (memory_path / "PROGRESS.md").read_text()
-        # Fallback appended something
-        assert len(new_progress) > len(original_progress)
-        assert "Step 1.1" in new_progress
+        new_roadmap = (memory_path / "ROADMAP.md").read_text()
+        # Fallback checked off only the completed step
+        assert "- [x] Step 1.1" in new_roadmap
+        assert "- [ ] Step 1.1" not in new_roadmap
+        # Other unchecked steps are unaffected
+        assert "- [ ] Step 1.2" in new_roadmap
 
-    def test_creates_progress_if_missing(self, tmp_path: Path, sample_step: Step) -> None:
-        """Should not crash if PROGRESS.md doesn't exist yet."""
-        mem = tmp_path / "memory"
-        mem.mkdir()
-        (mem / "CHANGELOG.md").write_text("# Changelog\n")
-        with patch("src.memory.litellm.completion", side_effect=RuntimeError("fail")):
-            update_memory(mem, sample_step, "diff", "review", "test/model")
-
-        assert (mem / "PROGRESS.md").exists()
+    def test_exception_when_roadmap_missing(self, memory_path: Path, sample_step: Step) -> None:
+        """Should not crash if ROADMAP.md is missing when an exception occurs."""
+        (memory_path / "ROADMAP.md").unlink()
+        with patch("src.memory.litellm.completion", side_effect=RuntimeError("API down")):
+            update_memory(memory_path, sample_step, "diff", "review", "test/model")
+        
+        assert not (memory_path / "ROADMAP.md").exists()

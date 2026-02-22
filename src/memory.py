@@ -2,10 +2,8 @@
 
 Manages the project memory files that give the coder context:
 - ARCHITECTURE.md — current system design
-- ROADMAP.md — step list with checkboxes
+- ROADMAP.md — step list with checkboxes and change notes
 - DECISIONS.md — past design decisions
-- PROGRESS.md — running log of completed work
-- CHANGELOG.md — human-readable summary (output only)
 """
 
 import logging
@@ -33,8 +31,6 @@ def ensure_memory_bank(memory_path: Path) -> None:
         "ARCHITECTURE.md": "# Architecture\n\nDescribe your system components, data flows, and schemas here.\n",
         "ROADMAP.md": "# Roadmap\n\nAdd steps as checkboxes:\n\n- [ ] Step 1.1: Example step\n",
         "DECISIONS.md": "# Design Decisions\n\nRecord why things are the way they are.\n",
-        "PROGRESS.md": "# Progress Log\n\nUpdated automatically after each completed step.\n",
-        "CHANGELOG.md": "# Changelog\n\nAll notable changes to this project.\n",
     }
 
     for filename, content in templates.items():
@@ -64,18 +60,7 @@ def find_next_step(memory_path: Path, pattern: str) -> Step | None:
     return None  # All steps completed
 
 
-def mark_step_complete(memory_path: Path, step: Step) -> None:
-    """Check off a step in ROADMAP.md."""
-    roadmap = memory_path / "ROADMAP.md"
-    content = roadmap.read_text()
 
-    # Replace the unchecked line with a checked version
-    old_line = step.raw_line
-    new_line = old_line.replace("- [ ]", "- [x]", 1)
-    content = content.replace(old_line, new_line, 1)
-
-    roadmap.write_text(content)
-    logger.info(f"Marked Step {step.step_id} complete in ROADMAP.md")
 
 
 def get_coder_context(memory_path: Path, step: Step) -> str:
@@ -96,10 +81,10 @@ def get_coder_context(memory_path: Path, step: Step) -> str:
     if decisions.exists():
         parts.append(f"## Design Decisions\n\n{decisions.read_text()}")
 
-    # Progress log
-    progress = memory_path / "PROGRESS.md"
-    if progress.exists():
-        parts.append(f"## What's Been Built So Far\n\n{progress.read_text()}")
+    # Roadmap and Progress
+    roadmap = memory_path / "ROADMAP.md"
+    if roadmap.exists():
+        parts.append(f"## ROADMAP (with progress notes)\n\n{roadmap.read_text()}")
 
     # Check for a detailed plan file
     plan_dir = memory_path.parent / "docs" / "plans"
@@ -134,7 +119,7 @@ After implementing, briefly summarize what you built and which files you created
 def get_memory_file_paths(memory_path: Path) -> list[str]:
     """Return relative paths to memory bank files for Aider --read."""
     memory_dir = memory_path.name
-    files = ["ARCHITECTURE.md", "DECISIONS.md", "PROGRESS.md"]
+    files = ["ARCHITECTURE.md", "DECISIONS.md"]
     return [f"{memory_dir}/{f}" for f in files if (memory_path / f).exists()]
 
 
@@ -149,14 +134,13 @@ def update_memory(
 
     Uses a cheap model to read current memory state + what was done,
     then produces updated versions of files that need changing.
+    It will also check off the current step in ROADMAP.md and add a summary note.
     """
-    progress = memory_path / "PROGRESS.md"
+    roadmap = memory_path / "ROADMAP.md"
     arch = memory_path / "ARCHITECTURE.md"
     decisions = memory_path / "DECISIONS.md"
-    changelog = memory_path / "CHANGELOG.md"
 
-    # Always append to PROGRESS.md
-    current_progress = progress.read_text() if progress.exists() else ""
+    current_roadmap = roadmap.read_text() if roadmap.exists() else ""
     current_arch = arch.read_text() if arch.exists() else ""
     current_decisions = decisions.read_text() if decisions.exists() else ""
 
@@ -173,8 +157,8 @@ Step {step.step_id}: {step.description}
 
 ## Current Memory Files
 
-### PROGRESS.md (current)
-{current_progress}
+### ROADMAP.md (current)
+{current_roadmap}
 
 ### ARCHITECTURE.md (current)
 {current_arch}
@@ -186,7 +170,7 @@ Step {step.step_id}: {step.description}
 
 Output exactly three sections, separated by "===SECTION===" markers:
 
-1. PROGRESS.md — Append a new entry for this step. Include: what was built, key files, test count if mentioned in the review. Keep existing entries unchanged.
+1. ROADMAP.md — Check off the completed step (change `- [ ]` to `- [x]`). Immediately below the checked step, add a new line starting with `> ` containing a very brief summary of what changed (e.g., `> Moved to src/ layout, added hooks`). Keep all other steps unchanged.
 
 2. ARCHITECTURE.md — Update ONLY if the system structure changed (new components, new data flows, schema changes). If no structural changes, output the existing content unchanged. Do NOT add information about implementation details that don't affect architecture.
 
@@ -195,8 +179,8 @@ Output exactly three sections, separated by "===SECTION===" markers:
 Keep all files concise. Under 50 lines each. Remove outdated information.
 
 Format:
-===PROGRESS===
-[updated progress content]
+===ROADMAP===
+[updated roadmap content]
 ===ARCHITECTURE===
 [updated architecture content]
 ===DECISIONS===
@@ -213,12 +197,12 @@ Format:
 
         # Parse sections
         sections = {}
-        for section_name in ["PROGRESS", "ARCHITECTURE", "DECISIONS"]:
+        for section_name in ["ROADMAP", "ARCHITECTURE", "DECISIONS"]:
             marker = f"==={section_name}==="
             if marker in result:
                 start = result.index(marker) + len(marker)
                 # Find next marker or end
-                next_markers = [f"==={s}===" for s in ["PROGRESS", "ARCHITECTURE", "DECISIONS"] if s != section_name]
+                next_markers = [f"==={s}===" for s in ["ROADMAP", "ARCHITECTURE", "DECISIONS"] if s != section_name]
                 end = len(result)
                 for nm in next_markers:
                     if nm in result[start:]:
@@ -227,22 +211,30 @@ Format:
                             end = candidate
                 sections[section_name] = result[start:end].strip()
 
-        if "PROGRESS" in sections:
-            progress.write_text(sections["PROGRESS"] + "\n")
+        if "ROADMAP" in sections:
+            roadmap.write_text(sections["ROADMAP"] + "\n")
+            logger.info(f"Marked Step {step.step_id} complete in ROADMAP.md with notes")
+        else:
+            # Fallback simple checkbox update if LLM fails to output ROADMAP section
+            old_line = step.raw_line
+            new_line = old_line.replace("- [ ]", "- [x]", 1)
+            current_roadmap = current_roadmap.replace(old_line, new_line, 1)
+            roadmap.write_text(current_roadmap)
+            logger.info(f"Marked Step {step.step_id} complete in ROADMAP.md (fallback)")
+
         if "ARCHITECTURE" in sections:
             arch.write_text(sections["ARCHITECTURE"] + "\n")
         if "DECISIONS" in sections:
             decisions.write_text(sections["DECISIONS"] + "\n")
 
-        # Append to CHANGELOG (simple, no model needed)
-        changelog_entry = f"\n## Step {step.step_id}: {step.description}\n\n{diff_summary[:500]}\n"
-        with open(changelog, "a") as f:
-            f.write(changelog_entry)
-
         logger.info("Memory bank updated successfully")
 
     except Exception as e:
-        logger.error(f"Failed to update memory bank: {e}")
-        # Fallback: just append to progress
-        with open(progress, "a") as f:
-            f.write(f"\n### Step {step.step_id}: {step.description}\n\n{diff_summary[:300]}\n")
+        logger.error(f"Failed to update memory bank context: {e}")
+        # Fallback simple checkbox update
+        if roadmap.exists():
+            old_line = step.raw_line
+            new_line = old_line.replace("- [ ]", "- [x]", 1)
+            current_roadmap = roadmap.read_text().replace(old_line, new_line, 1)
+            roadmap.write_text(current_roadmap)
+            logger.info(f"Marked Step {step.step_id} complete in ROADMAP.md (exception fallback)")

@@ -429,3 +429,242 @@ class TestTruncate:
         result = _truncate("x" * 200, 100)
         assert "truncated" in result
         assert result.startswith("x" * 100)
+
+# ---------------------------------------------------------------------------
+# _prompt_commit and _prompt_after_failure
+# ---------------------------------------------------------------------------
+
+class TestPromptCommit:
+    def test_commit_success(self, cfg: ForgeConfig) -> None:
+        with (
+            patch("src.cli._prompt", return_value="commit"),
+            patch("src.cli.finalize_step") as mock_finalize,
+            patch("src.cli._save_state") as mock_save,
+            patch("src.cli.notify_telegram"),
+        ):
+            from src.cli import _prompt_commit
+            _prompt_commit(cfg, _success_result(), notify=True)
+            mock_finalize.assert_called_once()
+            mock_save.assert_called_with(BotState.IDLE)
+
+    def test_commit_no_result(self, cfg: ForgeConfig, capsys: pytest.CaptureFixture) -> None:
+        with patch("src.cli._prompt", return_value="commit"):
+            from src.cli import _prompt_commit
+            _prompt_commit(cfg, None, notify=False)
+            assert "No pending result" in capsys.readouterr().out
+
+    def test_commit_exception(self, cfg: ForgeConfig, capsys: pytest.CaptureFixture) -> None:
+        with (
+            patch("src.cli._prompt", return_value="commit"),
+            patch("src.cli.finalize_step", side_effect=ValueError("git error")),
+            patch("src.cli.notify_telegram"),
+        ):
+            from src.cli import _prompt_commit
+            _prompt_commit(cfg, _success_result(), notify=True)
+            assert "Commit failed" in capsys.readouterr().out
+
+    def test_stop_calls_reset(self, cfg: ForgeConfig) -> None:
+        with (
+            patch("src.cli._prompt", return_value="stop"),
+            patch("src.cli.cmd_reset") as mock_reset,
+        ):
+            from src.cli import _prompt_commit
+            _prompt_commit(cfg, _success_result(), notify=True)
+            mock_reset.assert_called_once_with(cfg, notify=True)
+
+    def test_invalid_input_loops_then_stop(self, cfg: ForgeConfig) -> None:
+        replies = iter(["what", "stop"])
+        with (
+            patch("src.cli._prompt", side_effect=replies),
+            patch("src.cli.cmd_reset") as mock_reset,
+        ):
+            from src.cli import _prompt_commit
+            _prompt_commit(cfg, _success_result(), notify=False)
+            mock_reset.assert_called_once_with(cfg, notify=False)
+
+
+class TestPromptAfterFailure:
+    def test_retry(self, cfg: ForgeConfig) -> None:
+        with (
+            patch("src.cli._prompt", return_value="retry"),
+            patch("src.cli._run_pipeline") as mock_run,
+        ):
+            from src.cli import _prompt_after_failure
+            _prompt_after_failure(cfg, _fail_result(), notify=True)
+            mock_run.assert_called_once_with(cfg, notify=True)
+
+    def test_skip(self, cfg: ForgeConfig) -> None:
+        with (
+            patch("src.cli._prompt", return_value="skip"),
+            patch("src.cli.cmd_skip") as mock_skip,
+        ):
+            from src.cli import _prompt_after_failure
+            _prompt_after_failure(cfg, _fail_result(), notify=True)
+            mock_skip.assert_called_once_with(cfg, notify=True)
+
+    def test_stop(self, cfg: ForgeConfig) -> None:
+        with (
+            patch("src.cli._prompt", return_value="stop"),
+            patch("src.cli.cmd_reset") as mock_reset,
+        ):
+            from src.cli import _prompt_after_failure
+            _prompt_after_failure(cfg, _fail_result(), notify=True)
+            mock_reset.assert_called_once_with(cfg, notify=True)
+
+    def test_invalid_loops_then_skip(self, cfg: ForgeConfig) -> None:
+        replies = iter(["hello", "skip"])
+        with (
+            patch("src.cli._prompt", side_effect=replies),
+            patch("src.cli.cmd_skip") as mock_skip,
+        ):
+            from src.cli import _prompt_after_failure
+            _prompt_after_failure(cfg, _fail_result(), notify=False)
+            mock_skip.assert_called_once_with(cfg, notify=False)
+
+# ---------------------------------------------------------------------------
+# Telegram notification branches and remaining edge cases
+# ---------------------------------------------------------------------------
+
+class TestCoverageGaps:
+    def test_cmd_next_no_steps_notifies_telegram(self, cfg: ForgeConfig) -> None:
+        with (
+            patch("src.cli._load_state", return_value=BotState.IDLE),
+            patch("src.cli.find_next_step", return_value=None),
+            patch("src.cli.notify_telegram") as mock_notify,
+        ):
+            cmd_next(cfg, notify=True)
+            mock_notify.assert_called_once()
+
+    def test_run_pipeline_exception_notifies_telegram(self, cfg: ForgeConfig) -> None:
+        with (
+            patch("src.cli._save_state"),
+            patch("src.cli.find_next_step", return_value=_make_step()),
+            patch("src.cli.execute_step", side_effect=RuntimeError("boom")),
+            patch("src.cli.notify_telegram") as mock_notify,
+        ):
+            from src.cli import _run_pipeline
+            _run_pipeline(cfg, notify=True)
+            # Called once on start, once on crash
+            assert mock_notify.call_count == 2
+
+    def test_handle_result_success_notifies_telegram(self, cfg: ForgeConfig) -> None:
+        from src.cli import _handle_result
+        with (
+            patch("src.cli._save_state"),
+            patch("src.cli._prompt_commit"),
+            patch("src.cli.notify_telegram") as mock_notify,
+        ):
+            _handle_result(cfg, _success_result(), notify=True)
+            mock_notify.assert_called_once()
+
+    def test_handle_result_failure_notifies_telegram(self, cfg: ForgeConfig) -> None:
+        from src.cli import _handle_result
+        with (
+            patch("src.cli._save_state"),
+            patch("src.cli._prompt_after_failure"),
+            patch("src.cli.notify_telegram") as mock_notify,
+        ):
+            _handle_result(cfg, _fail_result(), notify=True)
+            mock_notify.assert_called_once()
+
+    def test_prompt_commit_success_notifies_telegram(self, cfg: ForgeConfig) -> None:
+        from src.cli import _prompt_commit
+        with (
+            patch("src.cli._prompt", return_value="commit"),
+            patch("src.cli.finalize_step"),
+            patch("src.cli._save_state"),
+            patch("src.cli.notify_telegram") as mock_notify,
+        ):
+            _prompt_commit(cfg, _success_result(), notify=True)
+            # Once before commit, once after
+            assert mock_notify.call_count == 2
+
+    def test_run_cli_invalid_command_exits(self, cfg: ForgeConfig) -> None:
+        with (
+            patch("src.cli.ensure_memory_bank"),
+            patch("src.cli.sys.exit") as mock_exit,
+            patch("src.cli.print"),
+        ):
+            # args[0] not in COMMANDS
+            run_cli(cfg, ["invalid_command"])
+            mock_exit.assert_called_once_with(1)
+
+    # ---- notify=False branches (covers all `if notify:` false paths) ----
+
+    def test_cmd_next_no_steps_no_notify(self, cfg: ForgeConfig) -> None:
+        """Line 156->158: cmd_next, no steps, notify=False."""
+        with (
+            patch("src.cli._load_state", return_value=BotState.IDLE),
+            patch("src.cli.find_next_step", return_value=None),
+            patch("src.cli.notify_telegram") as mock_notify,
+        ):
+            cmd_next(cfg, notify=False)
+            mock_notify.assert_not_called()
+
+    def test_run_pipeline_exception_no_notify(self, cfg: ForgeConfig) -> None:
+        """Line 197->199: _run_pipeline crash, notify=False."""
+        from src.cli import _run_pipeline
+        with (
+            patch("src.cli._save_state"),
+            patch("src.cli.find_next_step", return_value=_make_step()),
+            patch("src.cli.execute_step", side_effect=RuntimeError("boom")),
+            patch("src.cli.notify_telegram") as mock_notify,
+        ):
+            _run_pipeline(cfg, notify=False)
+            mock_notify.assert_not_called()
+
+    def test_handle_result_success_no_notify(self, cfg: ForgeConfig) -> None:
+        """Line 219->226: success path, notify=False."""
+        from src.cli import _handle_result
+        with (
+            patch("src.cli._save_state"),
+            patch("src.cli._prompt_commit"),
+            patch("src.cli.notify_telegram") as mock_notify,
+        ):
+            _handle_result(cfg, _success_result(), notify=False)
+            mock_notify.assert_not_called()
+
+    def test_handle_result_failure_no_notify(self, cfg: ForgeConfig) -> None:
+        """Line 233->240: failure path, notify=False."""
+        from src.cli import _handle_result
+        with (
+            patch("src.cli._save_state"),
+            patch("src.cli._prompt_after_failure"),
+            patch("src.cli.notify_telegram") as mock_notify,
+        ):
+            _handle_result(cfg, _fail_result(), notify=False)
+            mock_notify.assert_not_called()
+
+    def test_prompt_commit_success_no_notify(self, cfg: ForgeConfig) -> None:
+        """Lines 252->254, 263->271: commit success, notify=False."""
+        from src.cli import _prompt_commit
+        with (
+            patch("src.cli._prompt", return_value="commit"),
+            patch("src.cli.finalize_step"),
+            patch("src.cli._save_state"),
+            patch("src.cli.notify_telegram") as mock_notify,
+        ):
+            _prompt_commit(cfg, _success_result(), notify=False)
+            mock_notify.assert_not_called()
+
+    def test_prompt_commit_exception_no_notify(self, cfg: ForgeConfig) -> None:
+        """Line 269->271: commit exception, notify=False."""
+        from src.cli import _prompt_commit
+        with (
+            patch("src.cli._prompt", return_value="commit"),
+            patch("src.cli.finalize_step", side_effect=ValueError("git error")),
+            patch("src.cli.notify_telegram") as mock_notify,
+        ):
+            _prompt_commit(cfg, _success_result(), notify=False)
+            mock_notify.assert_not_called()
+
+    # ---- Line 308: actually execute _prompt body ----
+
+    def test_prompt_calls_input(self) -> None:
+        """Line 308: exercise the real _prompt function body."""
+        from src.cli import _prompt
+        with patch("builtins.input", return_value="hello") as mock_input:
+            result = _prompt("msg")
+            mock_input.assert_called_once_with("msg")
+            assert result == "hello"
+
